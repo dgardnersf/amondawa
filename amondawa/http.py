@@ -39,13 +39,17 @@ logging.getLogger().addHandler(logging.StreamHandler())
 
 @app.route('/api/v1/datapoints', methods=['POST'])
 def add_datapoints():
-  json = request.get_json()
-  for dps in DataPointSet.from_json_object(json):
+  """Records metric data points.
+  """
+  for dps in DataPointSet.from_json_object(request.get_json()):
     datastore.put_data_points(dps)
   return ('', 204, [])
 
 @app.route('/api/v1/datapoints/query', methods=['POST'])
 def query_database():
+  """Returns a list of metric values based on a set of criteria. Also returns a
+      set of all tag names and values that are found across the data points.
+  """
   results = { 'queries': [{
     'sample_size': result.sample_size,
     'results': result.results
@@ -55,15 +59,14 @@ def query_database():
 
 @app.route('/api/v1/datapoints/query/tags', methods=['POST'])
 def query_metric_tags():
-  pass
-
-@app.route('/api/v1/datapoints/delete', methods=['POST'])
-def delete_datapoints():
-  pass
-
-@app.route('/api/v1/metric/<metric_name>', methods=['DELETE'])
-def delete_metric(metric_name):
-  pass
+  """Same as the query but it leaves off the data and just returns the tag
+      information.
+  """
+  results = { 'results': [{
+    'name': query.name,
+    'tags': datastore.query_metric_tags(query)
+    } for query in  QueryMetric.from_json_object(request.get_json())] }
+  return (json.dumps(results), 200, [])
 
 @app.route('/api/v1/metricnames')
 def get_metric_names():
@@ -80,5 +83,11 @@ def get_tag_values():
 @app.route('/api/v1/version')
 def get_version():
   pass
+
+@app.route('/api/v1/datapoints/delete', methods=['POST'])
+def delete_datapoints(): pass
+
+@app.route('/api/v1/metric/<metric_name>', methods=['DELETE'])
+def delete_metric(metric_name): pass
 
 

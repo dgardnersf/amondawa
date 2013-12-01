@@ -116,7 +116,7 @@ class Datastore(object):
     index_keys = self.__query_index_keys(query.name, 
         query.start_time, query.end_time, query.tags, self.domain)
     # convert tag part to kv pair dictionaries
-    return util.to_multi_map((key.get_tags() for key in index_keys))
+    return util.to_multi_map([key.get_tags() for key in index_keys])
 
   def delete_data_points(self, delete_query):
     """Delete datapoints by time interval and tags.

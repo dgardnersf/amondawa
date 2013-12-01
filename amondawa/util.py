@@ -92,10 +92,11 @@ def to_multi_map(dicts):
   """
   # get unique tag names
   keys = set()
-  keys.update(dicts)
+  map(keys.update, dicts)
   # create a results dictionary
   ret = dict([[k, set()] for k in keys])
   map(lambda d: map(lambda k: ret[k].add(d[k]), d.keys()), dicts)
+  for k in ret: ret[k] = [v for v in ret[k]]
   return ret
 
 class IndexKey(object):
