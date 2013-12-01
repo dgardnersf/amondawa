@@ -24,7 +24,7 @@
 HTTP related classes.
 """
 
-from amondawa.datastore import Datastore, DataPointSet
+from amondawa.datastore import Datastore, DataPointSet, QueryMetric, SimpleQueryCallback
 from flask import Flask, request, json
 from pprint import pprint
 import amondawa
@@ -44,6 +44,19 @@ def add_datapoints():
     datastore.put_data_points(dps)
   return ('', 204, [])
 
+@app.route('/api/v1/datapoints/query', methods=['POST'])
+def query_database():
+  results = { 'queries': [{
+    'sample_size': result.sample_size,
+    'results': result.results
+    } for result in [datastore.query_database(query, SimpleQueryCallback(query.name)) \
+        for query in QueryMetric.from_json_object(request.get_json())] ] }
+  return (json.dumps(results), 200, [])
+
+@app.route('/api/v1/datapoints/query/tags', methods=['POST'])
+def query_metric_tags():
+  pass
+
 @app.route('/api/v1/datapoints/delete', methods=['POST'])
 def delete_datapoints():
   pass
@@ -62,14 +75,6 @@ def get_tag_names():
 
 @app.route('/api/v1/tagvalues')
 def get_tag_values():
-  pass
-
-@app.route('/api/v1/datapoints/query', methods=['POST'])
-def query_database():
-  pass
-
-@app.route('/api/v1/datapoints/query/tags', methods=['POST'])
-def query_metric_tags():
   pass
 
 @app.route('/api/v1/version')

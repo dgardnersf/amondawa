@@ -24,12 +24,9 @@
 Classes for querying and storing datapoints.
 """
 
-from amondawa import schema
-from amondawa import util
-
-from threading import Thread
+from amondawa import schema, util
 from decimal import Decimal
-
+from threading import Thread
 import time
 
 # rough time intervals
@@ -90,7 +87,7 @@ class Datastore(object):
     query_threads = []
     for index_key in self.__query_index_keys(query.name, query.start_time, 
         query.end_time, query.tags, self.domain):
-      query_threads.append(QueryThread(self.dp_table, index_key, start_time, end_time))
+      query_threads.append(QueryThread(self.dp_table, index_key, query.start_time, query.end_time))
 
     # start the query threads
     for query in query_threads:
@@ -106,7 +103,11 @@ class Datastore(object):
         tag_string = query.get_tag_string()
       for timestamp, value in query.get_result():
         query_callback.add_data_point(timestamp, value)
-    query_callback.end_datapoint_set()
+
+    if len(query_threads):
+      query_callback.end_datapoint_set()
+
+    return query_callback
 
   def query_metric_tags(self, query):
     """Query datapoint tags by time interval and tags.
@@ -133,6 +134,34 @@ class Datastore(object):
     """
     return filter(lambda key: key.has_tags(tags),
         schema.query_index(self.index, domain, metric, start_time, end_time))
+
+
+class SimpleQueryCallback(object):
+  """A simple collector for results.
+  """
+  def __init__(self, name):
+    self.name = name
+    self.results = []
+    self.sample_size = 0
+    self.datapoints = self.current = None
+
+  def start_datapoint_set(self, tags):
+    self.datapoints = []
+    self.current = {
+      'name': self.name,
+      'tags': tags,
+      'values': self.datapoints
+    }
+
+  def add_data_point(self, *args):
+    self.datapoints.append(args)
+
+  def end_datapoint_set(self):
+    self.sample_size += len(self.datapoints)
+    if self.current:
+      self.results.append(self.current)
+    self.current = None
+
 
 class QueryMetric(object):
   """DataPoint query class.
@@ -262,7 +291,7 @@ class QueryThread(Thread):
     self.start_time, self.end_time = start_time, end_time
 
   def run(self):
-    self.result = [(item['toffset'] + self.tbase, item['value']) for item in \
+    self.result = [(item['toffset'] + self.get_tbase(), item['value']) for item in \
       schema.query_datapoints(self.dp_table, self.index_key, self.start_time, 
         self.end_time)]
 

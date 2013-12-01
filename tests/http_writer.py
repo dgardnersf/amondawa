@@ -62,6 +62,7 @@ class RandomHTTPWriter(RandomWriter):
     self.connection.close()
 
   def send(self):
+    pprint(self.dps)
     self.connection.request("POST", self.path, simplejson.dumps(self.dps),
       {'Content-Type': 'application/json'})
     response = self.connection.getresponse()

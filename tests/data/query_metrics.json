@@ -1,41 +1,20 @@
 {
-  "start_absolute": 1357023600000,
-  "end_relative": {
-    "value": "5",
-    "unit": "days"
-  },
+  "start_absolute": 1385926882014,
+  "end_absolute": 1385927173612,
   "metrics": [
   {
     "tags": {
-      "host": ["foo", "foo2"],
-      "type": ["bar"]
+      "host": ["foo", "10.2.2.1"],
+      "type": ["network"]
     },
-    "name": "abc.123",
-    "aggregators": [
-    {
-      "name": "sum",
-      "sampling": {
-        "value": 10,
-        "unit": "minutes"
-      }
-    }
-    ]
+    "name": "rpo"
   },
   {
     "tags": {
       "host": ["foo", "foo2"],
       "type": ["bar"]
     },
-    "name": "xyz.123",
-    "aggregators": [
-    {
-      "name": "avg",
-      "sampling": {
-        "value": 10,
-        "unit": "minutes"
-      }
-    }
-    ]
+    "name": "xyz.123"
   }
   ]
 }

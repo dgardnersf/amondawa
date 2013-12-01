@@ -110,13 +110,15 @@ def store_index(index, timestamp, metric, tags, domain):
 def query_index(index, domain, metric, start_time, end_time):
   """Query index for keys.
   """
-  (IndexKey(k) for k in index.query(consistent=True, 
+  print '>>>>>>>>>>>>', index, domain, metric, start_time, end_time
+  return [IndexKey(k) for k in index.query(consistent=True, 
     domain_metric__eq=util.index_hash_key(domain, metric), 
-    tbase_tags__between=(lambda v: str(util.base_time(v)) for v in (start_time, end_time))))
+    tbase_tags__between=[str(util.base_time(v)) for v in (start_time, end_time)])]
 
 def query_datapoints(dp_table, index_key, start_time, end_time, attributes=['value']):
   """Query datapoints.
   """
+  print '>>>>>>>>>>>>', dp_table, index_key, start_time,  end_time, attributes
   return dp_table.query(consistent=False, 
     reverse=True, attributes=['toffset'] + attributes, 
     domain_metric_tbase_tags__eq=index_key.to_data_points_key(), 

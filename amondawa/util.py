@@ -76,7 +76,7 @@ def tags_from_string(tag_string):
   """
   return dict(map(lambda kv: kv.split('='), tag_string.split(';')))
 
-def offset_range(start_time, end_time, index_key):
+def offset_range(index_key, start_time, end_time):
   """Given absolute start and end time of query, calculate the start and
      end index for a given bucket (index key).
   """
@@ -155,5 +155,6 @@ class IndexKey(object):
     """return the datapoints hash key representation of this index key.
     """
     self.__init()
-    return hdata_points_key(self.domain, self.metric, self.tbase, self.tag_string)
+    return hdata_points_key(self.domain, self.metric, self.tbase,
+        self.get_tags())
 
