@@ -60,17 +60,17 @@ class Datastore(object):
   def get_metric_names(self):
     """Get the names of the metrics in the database.
     """
-    return self.dynamodb.get_metric_names()
+    return self.dynamodb.get_metric_names(self.domain)
 
   def get_tag_names(self):
     """Get the names of the tags in the database.
     """
-    return self.dynamodb.get_tag_names()
+    return self.dynamodb.get_tag_names(self.domain)
 
   def get_tag_values(self):
     """Get the values of the tags in the database.
     """
-    return self.dynamodb.get_tag_values()
+    return self.dynamodb.get_tag_values(self.domain)
 
   def query_database(self, query, query_callback):
     """Query datapoints by time interval and tags.

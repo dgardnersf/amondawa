@@ -67,19 +67,27 @@ def query_metric_tags():
 
 @app.route('/api/v1/metricnames')
 def get_metric_names():
-  pass
+  """Returns a list of all metric names.
+  """
+  return (json.dumps( { 'results': 
+    [name for name in datastore.get_metric_names()] }), 200, [])
 
 @app.route('/api/v1/tagnames')
 def get_tag_names():
-  pass
+  """Returns a list of all tag names.
+  """
+  return (json.dumps( { 'results': 
+    [name for name in datastore.get_tag_names()] }), 200, [])
 
 @app.route('/api/v1/tagvalues')
 def get_tag_values():
-  pass
+  """Returns a list of all tag values.
+  """
+  return (json.dumps( { 'results': 
+    [name for name in datastore.get_tag_values()] }), 200, [])
 
 @app.route('/api/v1/version')
-def get_version():
-  pass
+def get_version(): pass
 
 @app.route('/api/v1/datapoints/delete', methods=['POST'])
 def delete_datapoints(): pass

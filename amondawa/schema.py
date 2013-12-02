@@ -95,20 +95,23 @@ class Schema(object):
     self.dp_writer.flush()
     self.connection.close()
 
-  def get_metric_names(self):
+  def get_metric_names(self, domain):
     """Get all metric names.
     """
-    return self.metric_names.scan()
+    return [item['name'] for item in self.metric_names.query(consistent=False, 
+      attributes=['name'], domain__eq=domain)]
 
-  def get_tag_names(self):
+  def get_tag_names(self, domain):
     """Get tag names.
     """
-    return self.tag_names.scan()
+    return [item['name'] for item in self.tag_names.query(consistent=False, 
+      attributes=['name'], domain__eq=domain)]
 
-  def get_tag_values(self):
+  def get_tag_values(self, domain):
     """Get all tag values.
     """
-    return self.tag_values.scan()
+    return [item['value'] for item in self.tag_values.query(consistent=False, 
+      attributes=['value'], domain__eq=domain)]
 
   def store_datapoint(self, timestamp, metric, tags, value, domain):
     """Store a single datapoint, adding to ancillary tables if required.  This call
