@@ -26,7 +26,6 @@ HTTP related classes.
 
 from amondawa.datastore import Datastore, DataPointSet, QueryMetric, SimpleQueryCallback
 from flask import Flask, request, json
-from pprint import pprint
 import amondawa
 
 app = Flask('amondawa')
@@ -50,23 +49,21 @@ def query_database():
   """Returns a list of metric values based on a set of criteria. Also returns a
       set of all tag names and values that are found across the data points.
   """
-  results = { 'queries': [{
+  return (json.dumps( { 'queries': [{
     'sample_size': result.sample_size,
     'results': result.results
     } for result in [datastore.query_database(query, SimpleQueryCallback(query.name)) \
-        for query in QueryMetric.from_json_object(request.get_json())] ] }
-  return (json.dumps(results), 200, [])
+        for query in QueryMetric.from_json_object(request.get_json())] ] } ), 200, [])
 
 @app.route('/api/v1/datapoints/query/tags', methods=['POST'])
 def query_metric_tags():
   """Same as the query but it leaves off the data and just returns the tag
       information.
   """
-  results = { 'results': [{
+  return (json.dumps( { 'results': [{
     'name': query.name,
     'tags': datastore.query_metric_tags(query)
-    } for query in  QueryMetric.from_json_object(request.get_json())] }
-  return (json.dumps(results), 200, [])
+    } for query in  QueryMetric.from_json_object(request.get_json())] } ), 200, [])
 
 @app.route('/api/v1/metricnames')
 def get_metric_names():

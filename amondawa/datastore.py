@@ -24,7 +24,8 @@
 Classes for querying and storing datapoints.
 """
 
-from amondawa import schema, util
+from amondawa import util
+from amondawa.schema import Schema
 from decimal import Decimal
 from threading import Thread
 import time
@@ -46,39 +47,30 @@ class Datastore(object):
   """
   def __init__(self, connection, domain='nodomain'):
     self.connection = connection
-
-    tables = schema.bind(connection)
-
-    self.index = tables['data-points-index']
-    self.dp_table = tables['data-points']
-    self.metric_names = tables['metric-names']
-    self.tag_values = tables['tag-values']
-    self.tag_names = tables['tag-names']
-
-    self.dp_writer = self.dp_table.batch_write()
+    self.dynamodb = Schema(connection)
     self.domain = domain
 
   def put_data_points(self, dps):
     """Store elements of DataPointSet.
     """
     for dp in dps:
-      schema.store_datapoint(self.dp_writer, self.index,
-          dp.timestamp, dps.name, dps.tags, dp.value, self.domain)
+      self.dynamodb.store_datapoint(dp.timestamp, dps.name, dps.tags, dp.value,
+          self.domain)
 
   def get_metric_names(self):
     """Get the names of the metrics in the database.
     """
-    return schema.get_metric_names(self.metric_names)
+    return self.dynamodb.get_metric_names()
 
   def get_tag_names(self):
     """Get the names of the tags in the database.
     """
-    return schema.get_tag_names(self.tag_names)
+    return self.dynamodb.get_tag_names()
 
   def get_tag_values(self):
     """Get the values of the tags in the database.
     """
-    return schema.get_tag_values(self.tag_values)
+    return self.dynamodb.get_tag_values()
 
   def query_database(self, query, query_callback):
     """Query datapoints by time interval and tags.
@@ -87,7 +79,7 @@ class Datastore(object):
     query_threads = []
     for index_key in self.__query_index_keys(query.name, query.start_time, 
         query.end_time, query.tags, self.domain):
-      query_threads.append(QueryThread(self.dp_table, index_key, query.start_time, query.end_time))
+      query_threads.append(QueryThread(self.dynamodb, index_key, query.start_time, query.end_time))
 
     # start the query threads
     for query in query_threads:
@@ -126,14 +118,13 @@ class Datastore(object):
   def close(self):
     """Flush any cached state and close connections.
     """
-    self.dp_writer.flush()
-    self.connection.close()
+    self.dynamodb.close()
 
   def __query_index_keys(self, metric, start_time, end_time, tags, domain):
     """Query index keys by time interval and tags.
     """
     return filter(lambda key: key.has_tags(tags),
-        schema.query_index(self.index, domain, metric, start_time, end_time))
+        self.dynamodb.query_index(domain, metric, start_time, end_time))
 
 
 class SimpleQueryCallback(object):
@@ -284,15 +275,15 @@ class DataPointSet(list):
 class QueryThread(Thread):
   """A thread used to query the datapoints.
   """
-  def __init__(self, dp_table, index_key, start_time, end_time):
+  def __init__(self, dynamodb, index_key, start_time, end_time):
     super(QueryThread, self).__init__()
-    self.dp_table = dp_table
+    self.dynamodb = dynamodb
     self.index_key = index_key
     self.start_time, self.end_time = start_time, end_time
 
   def run(self):
     self.result = [(item['toffset'] + self.get_tbase(), item['value']) for item in \
-      schema.query_datapoints(self.dp_table, self.index_key, self.start_time, 
+      self.dynamodb.query_datapoints(self.index_key, self.start_time, 
         self.end_time)]
 
   def get_tbase(self):

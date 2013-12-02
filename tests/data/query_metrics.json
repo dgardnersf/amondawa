@@ -1,13 +1,13 @@
 {
-  "start_absolute": 1385926882014,
-  "end_absolute": 1385927173612,
+  "start_absolute": 1385956549415,
+  "end_absolute": 1385956845292,
   "metrics": [
   {
     "tags": {
       "host": ["foo", "10.2.2.1"],
-      "type": ["network"]
+      "type": ["compute"]
     },
-    "name": "rpo"
+    "name": "bytes_in"
   },
   {
     "tags": {
