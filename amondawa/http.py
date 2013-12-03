@@ -33,8 +33,8 @@ app = Flask('amondawa')
 connection = amondawa.connect('us-west-2')
 datastore = Datastore(connection)
 
-import logging
-logging.getLogger().addHandler(logging.StreamHandler())
+#import logging
+#logging.getLogger().addHandler(logging.StreamHandler())
 
 @app.route('/api/v1/datapoints', methods=['POST'])
 def add_datapoints():

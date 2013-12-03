@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-#
-# vim: filetype=python
-#
 # Copyright (c) 2013 Daniel Gardner
 # All rights reserved.
 #
@@ -24,6 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from amondawa import http
+from amondawa.http import app as application
 
-http.app.run()
+application.debug = True
+
+if __name__ == '__main__':
+  application.run(host='0.0.0.0', debug=True)
