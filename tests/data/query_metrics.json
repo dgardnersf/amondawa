@@ -1,11 +1,11 @@
 {
-  "start_absolute": 1386030996833,
-  "end_absolute": 1386040996833,
+  "start_absolute": 1386047176988,
+  "end_absolute": 1386047475932,
   "metrics": [
   {
     "tags": {
       "host": ["foo", "10.2.2.1"],
-      "type": ["compute"]
+      "type": ["storage"]
     },
     "name": "disk_free"
   },

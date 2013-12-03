@@ -24,8 +24,45 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from tests.http_writer import *
+import simplejson, httplib, time
+from threading import Thread
 
-writer = RandomHTTPWriter('amondawa.elasticbeanstalk.com', 
-  80, '/api/v1/datapoints')
-writer.start()
+json = simplejson.dumps({
+  "start_absolute": 1386047176988,
+  "end_absolute": 1386047475932,
+  "metrics": [
+  {
+    "tags": {
+      "host": ["foo", "10.2.2.1"],
+      "type": ["storage"]
+    },
+    "name": "disk_free"
+  },
+  {
+    "tags": {
+      "host": ["foo", "foo2"],
+      "type": ["bar"]
+    },
+    "name": "xyz.123"
+  }
+  ]
+})
+
+class QueryRunner(Thread):
+  def __init__(self, count):
+    super(QueryRunner, self).__init__()
+    self.count = count
+    self.connection = httplib.HTTPConnection('amondawa.elasticbeanstalk.com', 80)
+
+  def run(self):
+    while self.count:
+      t = time.time()
+      self.connection.request("POST", '/api/v1/datapoints/query', json, 
+          {'Content-Type': 'application/json'})
+      response = self.connection.getresponse()
+      response.read()
+      print response.status, response.reason, time.time() - t
+      self.count -= 1
+
+for i in range(2):
+  QueryRunner(500).start()
