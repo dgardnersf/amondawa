@@ -26,6 +26,7 @@ Classes for querying and storing datapoints.
 
 from amondawa import util
 from amondawa.schema import Schema
+from amondawa.mtime import timeit
 from decimal import Decimal
 from threading import Thread
 import time
@@ -72,6 +73,7 @@ class Datastore(object):
     """
     return self.dynamodb.get_tag_values(self.domain)
 
+  @timeit
   def query_database(self, query, query_callback):
     """Query datapoints by time interval and tags.
     """
@@ -79,27 +81,17 @@ class Datastore(object):
     query_threads = []
     for index_key in self.__query_index_keys(query.name, query.start_time, 
         query.end_time, query.tags, self.domain):
-      query_threads.append(QueryThread(self.dynamodb, index_key, query.start_time, query.end_time))
+      query_threads.append(QueryThread(self.dynamodb, index_key,
+        query.start_time, query.end_time))
 
     # start the query threads
     for query in query_threads:
       query.start()
 
-    # join the threads (in same order) calling the callback
-    tag_string = None
-    for query in query_threads:
-      if tag_string != query.get_tag_string():
-        if tag_string:
-          query_callback.end_datapoint_set()
-        query_callback.start_datapoint_set(query.get_tags())
-        tag_string = query.get_tag_string()
-      for timestamp, value in query.get_result():
-        query_callback.add_data_point(timestamp, value)
+    gather_thread = GatherThread(query_threads, query_callback)
+    gather_thread.start()
 
-    if len(query_threads):
-      query_callback.end_datapoint_set()
-
-    return query_callback
+    return gather_thread
 
   def query_metric_tags(self, query):
     """Query datapoint tags by time interval and tags.
@@ -120,10 +112,11 @@ class Datastore(object):
     """
     self.dynamodb.close()
 
+  @timeit
   def __query_index_keys(self, metric, start_time, end_time, tags, domain):
     """Query index keys by time interval and tags.
     """
-    return filter(lambda key: key.has_tags(tags),
+    return filter(lambda key: len(tags) == 0 or key.has_tags(tags),
         self.dynamodb.query_index(domain, metric, start_time, end_time))
 
 
@@ -271,6 +264,36 @@ class DataPointSet(list):
     return self is o or (type(o) == DataPointSet and \
       self.data_points == o.data_points and \
       self.name == o.name and self.tags == o.tags)
+
+
+class GatherThread(Thread):
+  """IO thread to read multiple query results and serialize together.
+  """
+  def __init__(self, query_threads, query_callback):
+    super(GatherThread, self).__init__()
+    self.query_callback = query_callback
+    self.query_threads = query_threads
+
+  def run(self):
+    """
+    """
+    # join the query threads (in same order) calling the callback
+    tag_string = None
+    for query in self.query_threads:
+      if tag_string != query.get_tag_string():
+        if tag_string:
+          self.query_callback.end_datapoint_set()
+        self.query_callback.start_datapoint_set(query.get_tags())
+        tag_string = query.get_tag_string()
+      for timestamp, value in query.get_result():
+        self.query_callback.add_data_point(timestamp, value)
+
+    if len(self.query_threads):
+      self.query_callback.end_datapoint_set()
+
+  def get_result(self):
+    return self.query_callback
+
 
 class QueryThread(Thread):
   """A thread used to query the datapoints.

@@ -24,17 +24,15 @@
 HTTP related classes.
 """
 
+from amondawa.mtime import timeit
 from amondawa.datastore import Datastore, DataPointSet, QueryMetric, SimpleQueryCallback
 from flask import Flask, request, json
 import amondawa
 
 app = Flask('amondawa')
 
-connection = amondawa.connect('us-west-2')
+connection = amondawa.connect('us-west-2')    # TODO: make configurable
 datastore = Datastore(connection)
-
-#import logging
-#logging.getLogger().addHandler(logging.StreamHandler())
 
 @app.route('/api/v1/datapoints', methods=['POST'])
 def add_datapoints():
@@ -45,6 +43,7 @@ def add_datapoints():
   return ('', 204, [])
 
 @app.route('/api/v1/datapoints/query', methods=['POST'])
+@timeit
 def query_database():
   """Returns a list of metric values based on a set of criteria. Also returns a
       set of all tag names and values that are found across the data points.
@@ -52,7 +51,7 @@ def query_database():
   return (json.dumps( { 'queries': [{
     'sample_size': result.sample_size,
     'results': result.results
-    } for result in [datastore.query_database(query, SimpleQueryCallback(query.name)) \
+    } for result in [datastore.query_database(query, SimpleQueryCallback(query.name)).get_result() \
         for query in QueryMetric.from_json_object(request.get_json())] ] } ), 200, [])
 
 @app.route('/api/v1/datapoints/query/tags', methods=['POST'])

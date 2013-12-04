@@ -25,7 +25,7 @@ from tests.writers import RandomWriter
 import httplib
 import simplejson, time
 
-THREAD_RATE = 2    # per/sec
+THREAD_RATE = 20    # per/sec
 
 class RandomHTTPWriter(RandomWriter):
   """Write random metrics, tags, datapoints to amondawa datastore via HTTP.

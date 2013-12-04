@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 # Copyright (c) 2013 Daniel Gardner
 # All rights reserved.
 #
@@ -21,7 +23,6 @@
 # IN THE SOFTWARE.
 
 from amondawa.http import app as application
-
 application.debug = True
 
 if __name__ == '__main__':

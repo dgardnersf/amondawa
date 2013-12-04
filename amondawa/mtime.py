@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-#
-# vim: filetype=python
-#
 # Copyright (c) 2013 Daniel Gardner
 # All rights reserved.
 #
@@ -24,9 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from tests.http_writer import *
+"""
+Method timer.
+"""
+import time
 
-for i in range(2):
-  writer = RandomHTTPWriter('127.0.0.1', 
-      5000, '/api/v1/datapoints')
-  writer.start()
+def timeit(c):
+  def wrapper(*args, **kwargs):
+    s = time.time()
+    ret = c(*args, **kwargs)
+    print 'timeit:', c.__module__, '.', c, time.time() - s 
+    return ret
+  return wrapper
