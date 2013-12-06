@@ -1,5 +1,5 @@
 
-Amondawa provides a ReST interface for storing and quering time series data.
+Amondawa provides a ReST interface for storing and querying time series data.
 It is inspired by KairosDB and openTSDB.  It is written to take advantage of
 Amazon's AWS services - using dynamoDB as a backend store and packaged to run
 atop Elastic Beanstalk.
