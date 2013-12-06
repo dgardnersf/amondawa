@@ -30,16 +30,17 @@ from boto.dynamodb2.types import *
 
 from amondawa import util
 from amondawa.util import IndexKey
+#from repoze.lru import lru_cache
 
 class Schema(object):
   table_names = 'data_points', 'data_points_index', 'metric_names', \
                 'tag_names', 'tag_values'
 
-  metric_names_tp = { 'read': 1, 'write': 1 }
-  tag_names_tp = { 'read': 1, 'write': 1 }
-  tag_values_tp = { 'read': 1, 'write': 1 }
-  data_points_tp = { 'read': 10, 'write': 40 }
-  data_points_index_tp = { 'read': 40, 'write': 1 }
+  metric_names_tp      = { 'read': 1, 'write': 1 }
+  tag_names_tp         = { 'read': 1, 'write': 1 }
+  tag_values_tp        = { 'read': 1, 'write': 1 }
+  data_points_tp       = { 'read': 80, 'write': 40 }
+  data_points_index_tp = { 'read': 80, 'write': 40 }
 
   @staticmethod
   def delete(connection):
@@ -79,6 +80,7 @@ class Schema(object):
   def __init__(self, connection):
     """Initilize data structures.
     """
+    self.connection = connection
     self.index_key_cache = set()
     self.metric_name_cache = set()
     self.tag_name_cache = set()
@@ -119,9 +121,9 @@ class Schema(object):
         dynamodb.
     """
     key = util.hdata_points_key(domain, metric, timestamp, tags)
-    self.__store_index(key, timestamp, metric, tags, domain)
-    self.__store_tags(domain, tags)
-    self.__store_metric(domain, metric)
+    self._store_index(key, timestamp, metric, tags, domain)
+    self._store_tags(domain, tags)
+    self._store_metric(domain, metric)
 
     self.dp_writer.put_item(data = {
       'domain_metric_tbase_tags': key,
@@ -129,10 +131,11 @@ class Schema(object):
       'value': value
       })
   
+  #@lru_cache(500)
   def query_index(self, domain, metric, start_time, end_time):
     """Query index for keys.
     """
-    return [IndexKey(k) for k in self.data_points_index.query(consistent=True, 
+    return [IndexKey(k) for k in self.data_points_index.query(consistent=False, 
       domain_metric__eq=util.index_hash_key(domain, metric), 
       tbase_tags__between=[str(util.base_time(v)) for v in (start_time, end_time)])]
 
@@ -144,40 +147,40 @@ class Schema(object):
       domain_metric_tbase_tags__eq=index_key.to_data_points_key(), 
       toffset__between=util.offset_range(index_key, start_time, end_time))
 
-  def __store_cache(self, key, cache, table, data):
+  def _store_cache(self, key, cache, table, data):
     if not key in cache:
       table.put_item(data=data(), overwrite=True)
       cache.add(key)
 
-  def __store_index(self, key, timestamp, metric, tags, domain):
+  def _store_index(self, key, timestamp, metric, tags, domain):
     """Store an index key if not yet stored.
     """
-    self.__store_cache(key, self.index_key_cache, self.data_points_index,
+    self._store_cache(key, self.index_key_cache, self.data_points_index,
         lambda: { 'domain_metric': util.index_hash_key(domain, metric),
           'tbase_tags': util.index_range_key(timestamp, tags) })
 
-  def __store_tag_name(self, domain, name):
+  def _store_tag_name(self, domain, name):
     """Store tag name if not yet stored.
     """
-    self.__store_cache('|'.join([domain, name]), self.tag_name_cache, self.tag_names,
+    self._store_cache('|'.join([domain, name]), self.tag_name_cache, self.tag_names,
         lambda: { 'domain': domain, 'name': name })
  
-  def __store_tag_value(self, domain, value):
+  def _store_tag_value(self, domain, value):
     """Store tag value if not yet stored.
     """
-    self.__store_cache('|'.join([domain, value]), self.tag_value_cache, self.tag_values,
+    self._store_cache('|'.join([domain, value]), self.tag_value_cache, self.tag_values,
         lambda: { 'domain': domain, 'value': value })
  
-  def __store_metric(self, domain, metric):
+  def _store_metric(self, domain, metric):
     """Store metric name if not yet stored.
     """
-    self.__store_cache('|'.join([domain, metric]), self.metric_name_cache, self.metric_names,
+    self._store_cache('|'.join([domain, metric]), self.metric_name_cache, self.metric_names,
         lambda: { 'domain': domain, 'name': metric })
 
-  def __store_tags(self, domain, tags):
+  def _store_tags(self, domain, tags):
     """Store tags if not yet stored.
     """
     for name, value in tags.items():
-      self.__store_tag_name(domain, name)
-      self.__store_tag_value(domain, value)
+      self._store_tag_name(domain, name)
+      self._store_tag_value(domain, value)
 

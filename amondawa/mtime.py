@@ -25,8 +25,12 @@ Method timer.
 """
 import time
 
+debug = False       # TODO make configurable
+
 def timeit(c):
   def wrapper(*args, **kwargs):
+    if not debug:
+      return c(*args, **kwargs)
     s = time.time()
     ret = c(*args, **kwargs)
     print 'timeit:', c.__module__, '.', c, time.time() - s 

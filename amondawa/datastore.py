@@ -25,23 +25,11 @@ Classes for querying and storing datapoints.
 """
 
 from amondawa import util
-from amondawa.schema import Schema
 from amondawa.mtime import timeit
+from amondawa.query import QueryThread, GatherThread
+from amondawa.schema import Schema
 from decimal import Decimal
-from threading import Thread
 import time
-
-# rough time intervals
-TIME_ITERVALS = {
-  'milliseconds': 1, 
-  'seconds':      1000, 
-  'minutes':      1000*60, 
-  'hours':        1000*60*60, 
-  'days':         1000*60*60*24, 
-  'weeks':        1000*60*60*24*7, 
-  'months':       1000*60*60*24*30, 
-  'years':        1000*60*60*24*365
-}
 
 class Datastore(object):
   """Object based access to the time series database.
@@ -119,84 +107,6 @@ class Datastore(object):
     return filter(lambda key: len(tags) == 0 or key.has_tags(tags),
         self.dynamodb.query_index(domain, metric, start_time, end_time))
 
-
-class SimpleQueryCallback(object):
-  """A simple collector for results.
-  """
-  def __init__(self, name):
-    self.name = name
-    self.results = []
-    self.sample_size = 0
-    self.datapoints = self.current = None
-
-  def start_datapoint_set(self, tags):
-    self.datapoints = []
-    self.current = {
-      'name': self.name,
-      'tags': tags,
-      'values': self.datapoints
-    }
-
-  def add_data_point(self, *args):
-    self.datapoints.append(args)
-
-  def end_datapoint_set(self):
-    self.sample_size += len(self.datapoints)
-    if self.current:
-      self.results.append(self.current)
-    self.current = None
-
-
-class QueryMetric(object):
-  """DataPoint query class.
-  """
-  @staticmethod
-  def from_json_object(json):
-    """Factory method: query from json.
-    """
-    start, end = QueryMetric.__time_interval_from_json(json)
-    return [QueryMetric(start, end, metric['name'], metric['tags']) \
-      for metric in json['metrics']]
-
-  @staticmethod
-  def __calc_time(now, json, stend):
-    """Calculate absolute time from absolute timestamp or relative time struct.
-    """
-    abs_str, rel_str = stend + '_absolute', \
-        stend + '_relative'
-    t = now
-    if abs_str in json:
-      t = int(json[abs_str])
-    elif rel_str in json:
-      relative = json[rel_str]
-      t = now - int(relative['value']) * \
-                TIME_ITERVALS[relative['unit']]
-    return t
-
-  @staticmethod
-  def __time_interval_from_json(json):
-    """Calculate absolute time from absolute timestamp or relative time struct.
-    """
-    now = int(round(time.time() * 1000))
-    return (QueryMetric.__calc_time(now, json, stend) \
-      for stend in ('start', 'end'))
-
-  def __init__(self, start_time, end_time, name, tags=None, cache_time=0):
-    self.start_time = start_time
-    self.end_time = end_time
-    self.cache_time = cache_time
-    self.name = name
-    self.tags = tags
-
-  def add_tag(self, name, value):
-    self.tags[name] = value
-
-  def add_aggregator(self, aggregator): pass
-  def add_group_by(self, group_by): pass
-  def is_exclude_tags(self): pass
-  def set_exclude_tags(self, exclude_tags): pass
-
-
 class DataPoint(object):
   """A single datapoint.
   """
@@ -266,59 +176,62 @@ class DataPointSet(list):
       self.name == o.name and self.tags == o.tags)
 
 
-class GatherThread(Thread):
-  """IO thread to read multiple query results and serialize together.
+class QueryMetric(object):
+  """DataPoint query class.
   """
-  def __init__(self, query_threads, query_callback):
-    super(GatherThread, self).__init__()
-    self.query_callback = query_callback
-    self.query_threads = query_threads
-
-  def run(self):
+  @staticmethod
+  def from_json_object(json):
+    """Factory method: query from json.
     """
+    start, end = QueryMetric._time_interval_from_json(json)
+    return [QueryMetric(start, end, metric['name'], QueryMetric._aggregator(json), 
+      metric['tags']) for metric in json['metrics']]
+
+
+  @staticmethod
+  def _aggregator(json):
+    if 'aggregator' in json:
+      return json['aggregator']
+    return None
+
+  @staticmethod
+  def _calc_time(now, json, stend):
+    """Calculate absolute time from absolute timestamp or relative time struct.
     """
-    # join the query threads (in same order) calling the callback
-    tag_string = None
-    for query in self.query_threads:
-      if tag_string != query.get_tag_string():
-        if tag_string:
-          self.query_callback.end_datapoint_set()
-        self.query_callback.start_datapoint_set(query.get_tags())
-        tag_string = query.get_tag_string()
-      for timestamp, value in query.get_result():
-        self.query_callback.add_data_point(timestamp, value)
+    abs_str, rel_str = stend + '_absolute', \
+        stend + '_relative'
+    t = now
+    if abs_str in json:
+      t = int(json[abs_str])
+    elif rel_str in json:
+      relative = json[rel_str]
+      t = now - int(relative['value']) * \
+                FREQ_MILLIS[relative['unit']]
+    return t
 
-    if len(self.query_threads):
-      self.query_callback.end_datapoint_set()
+  @staticmethod
+  def _time_interval_from_json(json):
+    """Calculate absolute time from absolute timestamp or relative time struct.
+    """
+    now = int(round(time.time() * 1000))
+    return (QueryMetric._calc_time(now, json, stend) \
+      for stend in ('start', 'end'))
 
-  def get_result(self):
-    return self.query_callback
+  def __init__(self, start_time, end_time, name, aggregator=None, tags=None, cache_time=0):
+    self.start_time = start_time
+    self.end_time = end_time
+    self.cache_time = cache_time
+    self.name = name
+    self.tags = tags
+    self.aggregator = aggregator
+
+  def add_tag(self, name, value):
+    self.tags[name] = value
+
+  def add_aggregator(self, aggregator): pass
+  def add_group_by(self, group_by): pass
+  def is_exclude_tags(self): pass
+  def set_exclude_tags(self, exclude_tags): pass
 
 
-class QueryThread(Thread):
-  """A thread used to query the datapoints.
-  """
-  def __init__(self, dynamodb, index_key, start_time, end_time):
-    super(QueryThread, self).__init__()
-    self.dynamodb = dynamodb
-    self.index_key = index_key
-    self.start_time, self.end_time = start_time, end_time
-
-  def run(self):
-    self.result = [(item['toffset'] + self.get_tbase(), item['value']) for item in \
-      self.dynamodb.query_datapoints(self.index_key, self.start_time, 
-        self.end_time)]
-
-  def get_tbase(self):
-    return self.index_key.get_tbase()
-
-  def get_tag_string(self):
-    return self.index_key.get_tag_string()
-
-  def get_tags(self):
-    return self.index_key.get_tags()
-
-  def get_result(self):
-    self.join()
-    return self.result
 
