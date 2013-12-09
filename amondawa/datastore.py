@@ -27,6 +27,8 @@ Classes for querying and storing datapoints.
 from amondawa import util
 from amondawa.mtime import timeit
 from amondawa.query import QueryThread, GatherThread
+from amondawa.query import SimpleQueryCallback, ResamplingQueryCallback
+from amondawa.query import AggegatingQueryCallback, ComplexQueryCallback
 from amondawa.schema import Schema
 from decimal import Decimal
 import time
@@ -184,15 +186,30 @@ class QueryMetric(object):
     """Factory method: query from json.
     """
     start, end = QueryMetric._time_interval_from_json(json)
-    return [QueryMetric(start, end, metric['name'], QueryMetric._aggregator(json), 
-      metric['tags']) for metric in json['metrics']]
-
+    return [QueryMetric(start, end, metric['name'], metric.get('aggregate'), 
+      metric.get('downsample'),  metric['tags']) for metric in json['metrics']]
 
   @staticmethod
-  def _aggregator(json):
-    if 'aggregator' in json:
-      return json['aggregator']
-    return None
+  def create_callback(query):
+    aggregator = resampler = None
+    if query.aggregator:
+      aggregator = AggegatingQueryCallback(query.name, query.aggregator)
+    if query.downsample:
+      resampler = ResamplingQueryCallback(query.name, query.downsample['name'], 
+                                              query.downsample['sampling']['value'],
+                                              query.downsample['sampling']['unit'])
+    if aggregator:
+      if resampler:     # both are specified
+        return ComplexQueryCallback(aggregator, resampler)
+      else:             # only aggregator, use default (1 second) resampler
+        return aggregator
+        return ComplexQueryCallback(aggregator, ResamplingQueryCallback(query.name))
+
+    if resampler:
+      return resampler  # only downsample
+  
+    # none specified
+    return SimpleQueryCallback(query.name)
 
   @staticmethod
   def _calc_time(now, json, stend):
@@ -217,21 +234,21 @@ class QueryMetric(object):
     return (QueryMetric._calc_time(now, json, stend) \
       for stend in ('start', 'end'))
 
-  def __init__(self, start_time, end_time, name, aggregator=None, tags=None, cache_time=0):
+  def __init__(self, start_time, end_time, name, aggregator=None,
+                            downsample=None, tags=None, cache_time=0):
     self.start_time = start_time
     self.end_time = end_time
     self.cache_time = cache_time
     self.name = name
     self.tags = tags
     self.aggregator = aggregator
+    self.downsample = downsample
 
   def add_tag(self, name, value):
     self.tags[name] = value
 
-  def add_aggregator(self, aggregator): pass
   def add_group_by(self, group_by): pass
   def is_exclude_tags(self): pass
   def set_exclude_tags(self, exclude_tags): pass
-
 
 

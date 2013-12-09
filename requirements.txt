@@ -3,3 +3,4 @@ boto==2.19.0
 ipython==1.1.0
 simplejson==3.3.1
 wheel==0.22.0
+repoze.lru==0.6

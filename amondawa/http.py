@@ -26,7 +26,6 @@ HTTP related classes.
 
 from amondawa.datastore import QueryMetric, DataPointSet, Datastore
 from amondawa.mtime import timeit
-from amondawa.query import SimpleQueryCallback, ResampleQueryCallback
 from flask import Flask, request, json
 import amondawa
 
@@ -49,12 +48,14 @@ def query_database():
   """Returns a list of metric values based on a set of criteria. Also returns a
       set of all tag names and values that are found across the data points.
   """
+  # spawn all threads
+  gather_threads = [datastore.query_database(query, QueryMetric.create_callback(query)) \
+        for query in QueryMetric.from_json_object(request.get_json()) ]
+
   return (json.dumps( { 'queries': [{
     'sample_size': result.sample_size,
     'results': result.results
-    } for result in \
-        [datastore.query_database(query, _query_callback(query)).get_result() \
-        for query in QueryMetric.from_json_object(request.get_json()) ] ] } ), 200, [])
+    } for result in [t.get_result() for t in gather_threads] ] } ), 200, [])
 
 @app.route('/api/v1/datapoints/query/tags', methods=['POST'])
 def query_metric_tags():
@@ -87,21 +88,15 @@ def get_tag_values():
   return (json.dumps( { 'results': 
     [name for name in datastore.get_tag_values()] }), 200, [])
 
+#TODO
 @app.route('/api/v1/version')
 def get_version(): pass
 
+#TODO
 @app.route('/api/v1/datapoints/delete', methods=['POST'])
 def delete_datapoints(): pass
 
+#TODO
 @app.route('/api/v1/metric/<metric_name>', methods=['DELETE'])
 def delete_metric(metric_name): pass
 
-
-def _query_callback(query):
-  aggregator = query.aggregator
-  if aggregator:
-    return ResampleQueryCallback(query.name, aggregator['name'], 
-                                             aggregator['sampling']['value'],
-                                             aggregator['sampling']['unit'])
-  else:
-    return SimpleQueryCallback(query.name)

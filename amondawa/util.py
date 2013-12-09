@@ -25,6 +25,7 @@ Utility classes - string manipulation, key <-> string conversion etc.
 """
 
 import hashlib, time
+from repoze.lru import lru_cache
 
 # TODO: make configurable
 #COLUMN_HEIGHT = 3*7*24*60*60*1000  # 3 weeks (in millis)
@@ -65,7 +66,11 @@ def data_points_key(domain, metric, timestamp, tags):
 def hdata_points_key(domain, metric, timestamp, tags):
   """Create datapoints hash key.
   """
-  return hashlib.sha1(data_points_key(domain, metric, timestamp, tags)).hexdigest()
+  return hdata_points_key_str(data_points_key(domain, metric, timestamp, tags))
+
+#@lru_cache(500)
+def hdata_points_key_str(key_str):
+  return hashlib.sha1(key_str).hexdigest()
 
 def tag_string(tags):
   """Create tag string from dict.

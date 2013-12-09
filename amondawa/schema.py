@@ -30,7 +30,7 @@ from boto.dynamodb2.types import *
 
 from amondawa import util
 from amondawa.util import IndexKey
-#from repoze.lru import lru_cache
+from repoze.lru import LRUCache
 
 class Schema(object):
   table_names = 'data_points', 'data_points_index', 'metric_names', \
@@ -41,6 +41,9 @@ class Schema(object):
   tag_values_tp        = { 'read': 1, 'write': 1 }
   data_points_tp       = { 'read': 80, 'write': 40 }
   data_points_index_tp = { 'read': 80, 'write': 40 }
+
+  dp_lru = LRUCache(400)
+  index_key_lru = LRUCache(400)
 
   @staticmethod
   def delete(connection):
@@ -131,21 +134,37 @@ class Schema(object):
       'value': value
       })
   
-  #@lru_cache(500)
   def query_index(self, domain, metric, start_time, end_time):
     """Query index for keys.
     """
-    return [IndexKey(k) for k in self.data_points_index.query(consistent=False, 
-      domain_metric__eq=util.index_hash_key(domain, metric), 
-      tbase_tags__between=[str(util.base_time(v)) for v in (start_time, end_time)])]
+    index_key = util.index_hash_key(domain, metric)
+    base_range = [str(util.base_time(v)) for v in (start_time, end_time)]
+    cache_key = '|'.join([index_key, '|'.join(map(str, base_range))])
+
+    result =  Schema.index_key_lru.get(cache_key)
+    if not result:
+      result = [IndexKey(k) for k in self.data_points_index.query(consistent=False, 
+        domain_metric__eq=index_key, tbase_tags__between=base_range)]
+
+      Schema.index_key_lru.put(cache_key, result)
+
+    return result
 
   def query_datapoints(self, index_key, start_time, end_time, attributes=['value']):
     """Query datapoints.
     """
-    return self.data_points.query(consistent=False, 
-      reverse=True, attributes=['toffset'] + attributes, 
-      domain_metric_tbase_tags__eq=index_key.to_data_points_key(), 
-      toffset__between=util.offset_range(index_key, start_time, end_time))
+    data_points_key = key = index_key.to_data_points_key()
+    offset_range = util.offset_range(index_key, start_time, end_time)
+    cache_key = '|'.join([data_points_key, '|'.join(map(str, offset_range))])
+
+    result =  Schema.dp_lru.get(cache_key)
+    if not result:
+      result = [value for value in self.data_points.query(consistent=False, 
+        reverse=True, attributes=['toffset'] + attributes, 
+        domain_metric_tbase_tags__eq=data_points_key, toffset__between=offset_range)]
+  
+      Schema.dp_lru.put(cache_key, result)
+    return result
 
   def _store_cache(self, key, cache, table, data):
     if not key in cache:

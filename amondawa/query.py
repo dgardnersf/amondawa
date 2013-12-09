@@ -24,14 +24,13 @@
 Classes for querying datapoints.
 """
 
-# TODO rework threading using a pool - spawning endless threads won't scale
-
-import pandas as pd
-import numpy as np
+from amondawa import util
 from pandas.tseries import frequencies as freq
 from threading import Thread
+import numpy as np
+import pandas as pd
 
-# rough time intervals
+# time intervals
 FREQ_MILLIS = {
   'milliseconds': 1, 
   'seconds':      1000, 
@@ -66,6 +65,26 @@ AGGREGATORS = {
   'sum': np.sum
 }
 
+def resample(values, index, rule, how):
+  return pd.Series(values, 
+      pd.to_datetime(index, unit='ms')).resample(rule, how).dropna()
+
+def aggregate(series_list, how):
+  if how == np.mean:
+    how = np.sum
+  final = series_list[0]
+  for series in series_list:
+    l, r = map(lambda s: s.interpolate().dropna(), final.align(series))
+    final = l.combine(r, lambda v1, v2: how([v1, v2])).dropna()
+  if how == np.mean:
+    final /= len(series_list)
+  return final
+
+def to_data_points(series):
+  timestamps = [int(round(dt.value/1e6)) for dt in series.index]
+  return zip(timestamps, series.values)
+
+
 class SimpleQueryCallback(object):
   """A simple collector for results.
   """
@@ -92,11 +111,14 @@ class SimpleQueryCallback(object):
       self.results.append(self.current)
     self.current = None
 
+  def finish(self):
+    return self.results
 
-class ResampleQueryCallback(object):
+
+class ResamplingQueryCallback(object):
   """A resampling collector for results.
   """
-  def __init__(self, metric, how, value, unit):
+  def __init__(self, metric, how='avg', value=1, unit='seconds'):
     self.metric = metric
     self.how = AGGREGATORS[how]          # TODO: check, raise exception here
     self.rule = value * FREQ_TYPE[unit]  # TODO: check, raise exception here
@@ -109,15 +131,8 @@ class ResampleQueryCallback(object):
     self.values = []
     self.current = {
       'name': self.metric,
-      'tags': tags,
-      'values': None
+      'tags': tags
     }
-
-  def _calculate(self):
-    series = pd.Series(self.values, pd.to_datetime(self.index, unit='ms'))
-    series = series.resample(self.rule, self.how)
-    timestamps = [int(round(dt.value/1e6)) for dt in series.index]
-    return zip(timestamps, series.values)
 
   def add_data_point(self, timestamp, value):
     self.index.append(timestamp)
@@ -125,12 +140,84 @@ class ResampleQueryCallback(object):
 
   def end_datapoint_set(self):
     if self.current:
-      self.current['values'] = self._calculate()
+      self.current['series'] = resample(self.values, self.index, self.rule, self.how)
       self.results.append(self.current)
     self.sample_size += len(self.index)
     self.current = None
 
+  def finish(self):
+    for result in self.results:
+      result['values'] = to_data_points(result['series'])
+      del result['series']
+    return self.results
 
+
+class AggegatingQueryCallback(object):
+  """An aggregating collector for results.
+  """
+  def __init__(self, metric, how='avg'):
+    self.metric = metric
+    self.how = AGGREGATORS[how]          # TODO: check, raise exception here
+    self.results = []
+    self.sample_size = 0
+    self.index = self.values = None
+
+  def start_datapoint_set(self, tags):
+    self.index = []
+    self.values = []
+    self.current = {
+      'name': self.metric,
+      'tags': tags
+    }
+
+  def add_data_point(self, timestamp, value):
+    self.index.append(timestamp)
+    self.values.append(value)
+
+  def end_datapoint_set(self):
+    if self.current:
+      self.current['series'] = pd.Series(self.values, 
+          pd.to_datetime(self.index, unit='ms'))
+      self.results.append(self.current)
+    self.sample_size += len(self.index)
+    self.current = None
+
+  def finish(self):
+    """This method will aggregated across time series (unique metric/tag
+       combinations).
+    """
+    if not self.results: return
+    self.results = [{
+      'name': self.metric,
+      'tags': util.to_multi_map([result['tags'] for result in self.results]),
+      'values': to_data_points(aggregate([result['series'] for result in self.results], self.how)) 
+      }]
+    return self.results
+
+
+class ComplexQueryCallback(object):
+  def __init__(self, aggregator, resampler):
+    self.aggregator = aggregator
+    self.resampler = resampler
+
+  def start_datapoint_set(self, tags):
+    self.resampler.start_datapoint_set(tags)
+
+  def add_data_point(self, timestamp, value):
+    self.resampler.add_data_point(timestamp, value)
+
+  def end_datapoint_set(self):
+    self.resampler.end_datapoint_set()
+
+  def finish(self):
+    self.aggregator.results = self.resampler.results
+    self.sample_size = self.resampler.sample_size
+    self.resampler = None    # release memory
+    self.results = self.aggregator.finish()
+    return self.results
+
+
+# TODO rework threading using a pool
 class GatherThread(Thread):
   """IO thread to read multiple query results and serialize together.
   """
@@ -156,11 +243,14 @@ class GatherThread(Thread):
     if len(self.query_threads):
       self.query_callback.end_datapoint_set()
 
+    self.query_callback.finish()
+
   def get_result(self):
     self.join()
     return self.query_callback
 
 
+# TODO rework threading using a pool
 class QueryThread(Thread):
   """A thread used to query the datapoints.
   """
