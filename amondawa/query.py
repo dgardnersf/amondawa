@@ -25,10 +25,15 @@ Classes for querying datapoints.
 """
 
 from amondawa import util
+from amondawa.mtime import timeit
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from pandas.tseries import frequencies as freq
 from threading import Thread
 import numpy as np
 import pandas as pd
+
+thread_pool = ThreadPoolExecutor(max_workers=20)
+#thread_pool = ProcessPoolExecutor(max_workers=20)
 
 # time intervals
 FREQ_MILLIS = {
@@ -65,10 +70,12 @@ AGGREGATORS = {
   'sum': np.sum
 }
 
+@timeit
 def resample(values, index, rule, how):
   return pd.Series(values, 
       pd.to_datetime(index, unit='ms')).resample(rule, how).dropna()
 
+@timeit
 def aggregate(series_list, how):
   if how == np.mean:
     how = np.sum
@@ -217,14 +224,16 @@ class ComplexQueryCallback(object):
     return self.results
 
 
-# TODO rework threading using a pool
-class GatherThread(Thread):
+class GatherTask(object):
   """IO thread to read multiple query results and serialize together.
   """
   def __init__(self, query_threads, query_callback):
-    super(GatherThread, self).__init__()
+    super(GatherTask, self).__init__()
     self.query_callback = query_callback
     self.query_threads = query_threads
+
+  def start(self):
+    self.future = thread_pool.submit(self.run)
 
   def run(self):
     """
@@ -244,24 +253,26 @@ class GatherThread(Thread):
       self.query_callback.end_datapoint_set()
 
     self.query_callback.finish()
-
-  def get_result(self):
-    self.join()
     return self.query_callback
 
+  def get_result(self):
+    return self.future.result()
 
-# TODO rework threading using a pool
-class QueryThread(Thread):
+
+class QueryTask(object):
   """A thread used to query the datapoints.
   """
   def __init__(self, dynamodb, index_key, start_time, end_time):
-    super(QueryThread, self).__init__()
+    super(QueryTask, self).__init__()
     self.dynamodb = dynamodb
     self.index_key = index_key
     self.start_time, self.end_time = start_time, end_time
 
+  def start(self):
+    self.future = thread_pool.submit(self.run)
+
   def run(self):
-    self.result = [(item['toffset'] + self.get_tbase(), item['value']) for item in \
+    return [(item['toffset'] + self.get_tbase(), item['value']) for item in \
       self.dynamodb.query_datapoints(self.index_key, self.start_time, 
         self.end_time)]
 
@@ -275,6 +286,5 @@ class QueryThread(Thread):
     return self.index_key.get_tags()
 
   def get_result(self):
-    self.join()
-    return self.result
+    return self.future.result()
 

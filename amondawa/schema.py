@@ -137,14 +137,14 @@ class Schema(object):
   def query_index(self, domain, metric, start_time, end_time):
     """Query index for keys.
     """
-    index_key = util.index_hash_key(domain, metric)
+    key = util.index_hash_key(domain, metric)
     base_range = [str(util.base_time(v)) for v in (start_time, end_time)]
-    cache_key = '|'.join([index_key, '|'.join(map(str, base_range))])
+    cache_key = '|'.join([key, '|'.join(map(str, base_range))])
 
     result =  Schema.index_key_lru.get(cache_key)
     if not result:
       result = [IndexKey(k) for k in self.data_points_index.query(consistent=False, 
-        domain_metric__eq=index_key, tbase_tags__between=base_range)]
+        domain_metric__eq=key, tbase_tags__between=base_range)]
 
       Schema.index_key_lru.put(cache_key, result)
 
@@ -153,15 +153,15 @@ class Schema(object):
   def query_datapoints(self, index_key, start_time, end_time, attributes=['value']):
     """Query datapoints.
     """
-    data_points_key = key = index_key.to_data_points_key()
+    key = index_key.to_data_points_key()
     offset_range = util.offset_range(index_key, start_time, end_time)
-    cache_key = '|'.join([data_points_key, '|'.join(map(str, offset_range))])
+    cache_key = '|'.join([key, '|'.join(map(str, offset_range))])
 
     result =  Schema.dp_lru.get(cache_key)
     if not result:
       result = [value for value in self.data_points.query(consistent=False, 
         reverse=True, attributes=['toffset'] + attributes, 
-        domain_metric_tbase_tags__eq=data_points_key, toffset__between=offset_range)]
+        domain_metric_tbase_tags__eq=key, toffset__between=offset_range)]
   
       Schema.dp_lru.put(cache_key, result)
     return result

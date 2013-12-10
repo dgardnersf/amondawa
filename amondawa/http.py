@@ -27,17 +27,15 @@ HTTP related classes.
 from amondawa.datastore import QueryMetric, DataPointSet, Datastore
 from amondawa.mtime import timeit
 from flask import Flask, request, json
-import amondawa
 
 app = Flask('amondawa')
 
-connection = amondawa.connect('us-west-2')    # TODO: make configurable
-datastore = Datastore(connection)
 
 @app.route('/api/v1/datapoints', methods=['POST'])
 def add_datapoints():
   """Records metric data points.
   """
+  datastore = _get_datastore(request)
   for dps in DataPointSet.from_json_object(request.get_json()):
     datastore.put_data_points(dps)
   return ('', 204, [])
@@ -48,6 +46,7 @@ def query_database():
   """Returns a list of metric values based on a set of criteria. Also returns a
       set of all tag names and values that are found across the data points.
   """
+  datastore = _get_datastore(request)
   # spawn all threads
   gather_threads = [datastore.query_database(query, QueryMetric.create_callback(query)) \
         for query in QueryMetric.from_json_object(request.get_json()) ]
@@ -62,6 +61,7 @@ def query_metric_tags():
   """Same as the query but it leaves off the data and just returns the tag
       information.
   """
+  datastore = _get_datastore(request)
   return (json.dumps( { 'results': [{
     'name': query.name,
     'tags': datastore.query_metric_tags(query)
@@ -71,6 +71,7 @@ def query_metric_tags():
 def get_metric_names():
   """Returns a list of all metric names.
   """
+  datastore = _get_datastore(request)
   return (json.dumps( { 'results': 
     [name for name in datastore.get_metric_names()] }), 200, [])
 
@@ -78,6 +79,7 @@ def get_metric_names():
 def get_tag_names():
   """Returns a list of all tag names.
   """
+  datastore = _get_datastore(request)
   return (json.dumps( { 'results': 
     [name for name in datastore.get_tag_names()] }), 200, [])
 
@@ -85,18 +87,27 @@ def get_tag_names():
 def get_tag_values():
   """Returns a list of all tag values.
   """
+  datastore = _get_datastore(request)
   return (json.dumps( { 'results': 
     [name for name in datastore.get_tag_values()] }), 200, [])
+
+#TODO
+@app.route('/api/v1/datapoints/delete', methods=['POST'])
+def delete_datapoints(): 
+  pass
+
+#TODO
+@app.route('/api/v1/metric/<metric_name>', methods=['DELETE'])
+def delete_metric(metric_name): 
+  pass
 
 #TODO
 @app.route('/api/v1/version')
 def get_version(): pass
 
-#TODO
-@app.route('/api/v1/datapoints/delete', methods=['POST'])
-def delete_datapoints(): pass
 
-#TODO
-@app.route('/api/v1/metric/<metric_name>', methods=['DELETE'])
-def delete_metric(metric_name): pass
 
+def _get_datastore(request):
+  #domain = request.args.get('domain')
+  domain = 'nodomain'
+  return Datastore.get(domain)

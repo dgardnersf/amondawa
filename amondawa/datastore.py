@@ -26,14 +26,38 @@ Classes for querying and storing datapoints.
 
 from amondawa import util
 from amondawa.mtime import timeit
-from amondawa.query import QueryThread, GatherThread
-from amondawa.query import SimpleQueryCallback, ResamplingQueryCallback
 from amondawa.query import AggegatingQueryCallback, ComplexQueryCallback
+from amondawa.query import SimpleQueryCallback, ResamplingQueryCallback
+from amondawa.query import QueryTask, GatherTask
 from amondawa.schema import Schema
 from decimal import Decimal
+from threading import Lock, local
+
+import amondawa
 import time
 
 class Datastore(object):
+  ds_lock = Lock()       # lock for datastores dict
+  datastores = {}        # a datastore per domain
+
+  lconnection = local()  # thread local connections
+
+  @staticmethod
+  def get(domain, region='us-west-2'):   # TODO configurable region
+    datastore = None
+    with Datastore.ds_lock:
+      datastore = Datastore.datastores.get(domain)
+      if not datastore:
+        datastore = Datastore(Datastore._connection(region))
+        Datastore.datastores[domain] = datastore
+    return datastore
+
+  @staticmethod
+  def _connection(region):
+    if not getattr(Datastore.lconnection, 'connection', None):
+      Datastore.lconnection.connection = amondawa.connect(region)
+    return Datastore.lconnection.connection
+
   """Object based access to the time series database.
   """
   def __init__(self, connection, domain='nodomain'):
@@ -71,14 +95,14 @@ class Datastore(object):
     query_threads = []
     for index_key in self.__query_index_keys(query.name, query.start_time, 
         query.end_time, query.tags, self.domain):
-      query_threads.append(QueryThread(self.dynamodb, index_key,
+      query_threads.append(QueryTask(self.dynamodb, index_key,
         query.start_time, query.end_time))
 
     # start the query threads
     for query in query_threads:
       query.start()
 
-    gather_thread = GatherThread(query_threads, query_callback)
+    gather_thread = GatherTask(query_threads, query_callback)
     gather_thread.start()
 
     return gather_thread

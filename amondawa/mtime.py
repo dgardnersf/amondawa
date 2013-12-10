@@ -25,7 +25,7 @@ Method timer.
 """
 import time
 
-debug = False       # TODO make configurable
+debug = False  # TODO make configurable debug timing
 
 def timeit(c):
   def wrapper(*args, **kwargs):

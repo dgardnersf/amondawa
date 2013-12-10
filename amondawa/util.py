@@ -27,8 +27,8 @@ Utility classes - string manipulation, key <-> string conversion etc.
 import hashlib, time
 from repoze.lru import lru_cache
 
-# TODO: make configurable
 #COLUMN_HEIGHT = 3*7*24*60*60*1000  # 3 weeks (in millis)
+# TODO: make configurable COLUMN_HEIGHT
 COLUMN_HEIGHT = 1*60*1000   # 1 minutes
 
 def base_time(timestamp):
