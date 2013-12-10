@@ -27,6 +27,5 @@
 from amondawa.schema import Schema
 import amondawa
 
-connection = amondawa.connect('us-west-2')
-Schema.create(connection)
-connection.close()
+with amondawa.connect('us-west-2') as connection:
+  Schema.create(connection)

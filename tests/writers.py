@@ -25,10 +25,10 @@ from threading import Thread
 import random, math
 from tests.data import *
 
-THREAD_RATE = 2     # per/sec
-TOTAL_TIME = 5      # minutes
+THREAD_RATE = 1     # per/sec
+TOTAL_TIME = 10      # minutes
 
-SET_SIZE = 5        # how many datapoints in a set
+SET_SIZE = 20        # how many datapoints in a set
 
 AMONDAWA_CONTEXT = Context(Emin=-128, Emax=126, prec=38)
 

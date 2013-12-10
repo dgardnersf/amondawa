@@ -37,6 +37,9 @@ import amondawa
 import time
 
 class Datastore(object):
+  """Object based access to the time series database.
+  """
+
   ds_lock = Lock()       # lock for datastores dict
   datastores = {}        # a datastore per domain
 
@@ -44,6 +47,8 @@ class Datastore(object):
 
   @staticmethod
   def get(domain, region='us-west-2'):   # TODO configurable region
+    """Get per/domain datastore object.
+    """
     datastore = None
     with Datastore.ds_lock:
       datastore = Datastore.datastores.get(domain)
@@ -54,13 +59,15 @@ class Datastore(object):
 
   @staticmethod
   def _connection(region):
+    """Get threadlocal connection.
+    """
     if not getattr(Datastore.lconnection, 'connection', None):
       Datastore.lconnection.connection = amondawa.connect(region)
     return Datastore.lconnection.connection
 
-  """Object based access to the time series database.
-  """
   def __init__(self, connection, domain='nodomain'):
+    """ctor
+    """
     self.connection = connection
     self.dynamodb = Schema(connection)
     self.domain = domain
