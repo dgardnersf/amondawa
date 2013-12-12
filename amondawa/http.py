@@ -93,21 +93,18 @@ def get_tag_values():
 
 #TODO
 @app.route('/api/v1/datapoints/delete', methods=['POST'])
-def delete_datapoints(): 
-  pass
+def delete_datapoints(): pass
 
 #TODO
 @app.route('/api/v1/metric/<metric_name>', methods=['DELETE'])
-def delete_metric(metric_name): 
-  pass
+def delete_metric(metric_name): pass
 
 #TODO
 @app.route('/api/v1/version')
 def get_version(): pass
 
-
-
 def _get_datastore(request):
-  #domain = request.args.get('domain')
+  #domain = request.args.get('domain')  
+  # TODO: domain should come from path or query param
   domain = 'nodomain'
   return Datastore.get(domain)

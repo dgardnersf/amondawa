@@ -33,37 +33,27 @@ from amondawa.schema import Schema
 from decimal import Decimal
 from threading import Lock, local
 
-import amondawa
-import time
+import amondawa, time, threading
 
 class Datastore(object):
   """Object based access to the time series database.
   """
 
-  ds_lock = Lock()       # lock for datastores dict
-  datastores = {}        # a datastore per domain
-
-  lconnection = local()  # thread local connections
+  datastore_lock = Lock()  # lock for datastores dict
+  datastores = {}          # a datastore per domain
 
   @staticmethod
   def get(domain, region='us-west-2'):   # TODO configurable region
     """Get per/domain datastore object.
     """
+    #print threading.current_thread()
     datastore = None
-    with Datastore.ds_lock:
+    with Datastore.datastore_lock:
       datastore = Datastore.datastores.get(domain)
       if not datastore:
-        datastore = Datastore(Datastore._connection(region))
+        datastore = Datastore(amondawa.connect(region))
         Datastore.datastores[domain] = datastore
     return datastore
-
-  @staticmethod
-  def _connection(region):
-    """Get threadlocal connection.
-    """
-    if not getattr(Datastore.lconnection, 'connection', None):
-      Datastore.lconnection.connection = amondawa.connect(region)
-    return Datastore.lconnection.connection
 
   def __init__(self, connection, domain='nodomain'):
     """ctor
@@ -234,7 +224,6 @@ class QueryMetric(object):
         return ComplexQueryCallback(aggregator, resampler)
       else:             # only aggregator, use default (1 second) resampler
         return aggregator
-        return ComplexQueryCallback(aggregator, ResamplingQueryCallback(query.name))
 
     if resampler:
       return resampler  # only downsample

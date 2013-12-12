@@ -26,14 +26,14 @@ Classes for querying datapoints.
 
 from amondawa import util
 from amondawa.mtime import timeit
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from pandas.tseries import frequencies as freq
 from threading import Thread
 import numpy as np
 import pandas as pd
 
+# TODO: shutdown gracefully
 thread_pool = ThreadPoolExecutor(max_workers=20)
-#thread_pool = ProcessPoolExecutor(max_workers=20)
 
 # time intervals
 FREQ_MILLIS = {
@@ -70,13 +70,19 @@ AGGREGATORS = {
   'sum': np.sum
 }
 
+# TODO optimize
 @timeit
 def resample(values, index, rule, how):
+  """Downsample to fewer points.  This call will not add points (fill).
+  """
   return pd.Series(values, 
       pd.to_datetime(index, unit='ms')).resample(rule, how).dropna()
 
+# TODO optimize
 @timeit
 def aggregate(series_list, how):
+  """Aggregate the pandas time series in the list.
+  """
   if how == np.mean:
     how = np.sum
   final = series_list[0]
@@ -88,6 +94,8 @@ def aggregate(series_list, how):
   return final
 
 def to_data_points(series):
+  """Convert pandas time series back to datapoints array.
+  """
   timestamps = [int(round(dt.value/1e6)) for dt in series.index]
   return zip(timestamps, series.values)
 
@@ -203,6 +211,8 @@ class AggegatingQueryCallback(object):
 
 
 class ComplexQueryCallback(object):
+  """An downsampling and aggregating collector (in that order).
+  """
   def __init__(self, aggregator, resampler):
     self.aggregator = aggregator
     self.resampler = resampler
@@ -247,6 +257,8 @@ class GatherTask(object):
         self.query_callback.start_datapoint_set(query.get_tags())
         tag_string = query.get_tag_string()
       for timestamp, value in query.get_result():
+        # TODO: figure out how to preserve the datatype and precision;
+        #         simply casting to float (from Decimal) is a hack
         self.query_callback.add_data_point(int(timestamp), float(value))
 
     if len(self.query_threads):

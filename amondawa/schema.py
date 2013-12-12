@@ -23,14 +23,20 @@
 """
 Classes dealing directly with the dynamodb schema.
 """
+
+from amondawa import util
+from amondawa.util import IndexKey
+
 from boto import dynamodb2
 from boto.dynamodb2.fields import HashKey, RangeKey
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import *
 
-from amondawa import util
-from amondawa.util import IndexKey
+from concurrent.futures import ThreadPoolExecutor
 from repoze.lru import LRUCache
+from threading import Lock, local, Thread
+
+import sched, sys, time, atexit
 
 class Schema(object):
   table_names = 'data_points', 'data_points_index', 'metric_names', \
@@ -42,7 +48,7 @@ class Schema(object):
   data_points_tp       = { 'read': 80, 'write': 40 }
   data_points_index_tp = { 'read': 80, 'write': 40 }
 
-  dp_lru = LRUCache(400)
+  datapoints_lru = LRUCache(400)
   index_key_lru = LRUCache(400)
 
   @staticmethod
@@ -91,8 +97,15 @@ class Schema(object):
 
     # use table names as var names
     vars(self).update(Schema.bind(connection))
+    self.dp_writer = TimedBatchTable(self.data_points.batch_write())
 
-    self.dp_writer = self.data_points.batch_write()
+    @atexit.register
+    def close():
+      try:
+        self.dp_writer.flush()
+        self.connection.close()
+      except:
+        pass # called on abruptly exit
 
   def close(self):
     """Close connection and flush pending operations.
@@ -138,13 +151,13 @@ class Schema(object):
     """Query index for keys.
     """
     key = util.index_hash_key(domain, metric)
-    base_range = [str(util.base_time(v)) for v in (start_time, end_time)]
-    cache_key = '|'.join([key, '|'.join(map(str, base_range))])
+    time_range = [str(util.base_time(v)) for v in (start_time, end_time)]
+    cache_key = '|'.join([key, '|'.join(time_range)])
 
     result =  Schema.index_key_lru.get(cache_key)
     if not result:
       result = [IndexKey(k) for k in self.data_points_index.query(consistent=False, 
-        domain_metric__eq=key, tbase_tags__between=base_range)]
+        domain_metric__eq=key, tbase_tags__between=time_range)]
 
       Schema.index_key_lru.put(cache_key, result)
 
@@ -154,16 +167,16 @@ class Schema(object):
     """Query datapoints.
     """
     key = index_key.to_data_points_key()
-    offset_range = util.offset_range(index_key, start_time, end_time)
-    cache_key = '|'.join([key, '|'.join(map(str, offset_range))])
+    time_range = util.offset_range(index_key, start_time, end_time)
+    cache_key = '|'.join([key, '|'.join(map(str, time_range))])
 
-    result =  Schema.dp_lru.get(cache_key)
+    result =  Schema.datapoints_lru.get(cache_key)
     if not result:
       result = [value for value in self.data_points.query(consistent=False, 
         reverse=True, attributes=['toffset'] + attributes, 
-        domain_metric_tbase_tags__eq=key, toffset__between=offset_range)]
+        domain_metric_tbase_tags__eq=key, toffset__between=time_range)]
   
-      Schema.dp_lru.put(cache_key, result)
+      Schema.datapoints_lru.put(cache_key, result)
     return result
 
   def _store_cache(self, key, cache, table, data):
@@ -181,20 +194,20 @@ class Schema(object):
   def _store_tag_name(self, domain, name):
     """Store tag name if not yet stored.
     """
-    self._store_cache('|'.join([domain, name]), self.tag_name_cache, self.tag_names,
-        lambda: { 'domain': domain, 'name': name })
+    self._store_cache('|'.join([domain, name]), self.tag_name_cache,
+        self.tag_names, lambda: { 'domain': domain, 'name': name })
  
   def _store_tag_value(self, domain, value):
     """Store tag value if not yet stored.
     """
-    self._store_cache('|'.join([domain, value]), self.tag_value_cache, self.tag_values,
-        lambda: { 'domain': domain, 'value': value })
+    self._store_cache('|'.join([domain, value]), self.tag_value_cache,
+        self.tag_values, lambda: { 'domain': domain, 'value': value })
  
   def _store_metric(self, domain, metric):
     """Store metric name if not yet stored.
     """
-    self._store_cache('|'.join([domain, metric]), self.metric_name_cache, self.metric_names,
-        lambda: { 'domain': domain, 'name': metric })
+    self._store_cache('|'.join([domain, metric]), self.metric_name_cache,
+        self.metric_names, lambda: { 'domain': domain, 'name': metric })
 
   def _store_tags(self, domain, tags):
     """Store tags if not yet stored.
@@ -202,4 +215,80 @@ class Schema(object):
     for name, value in tags.items():
       self._store_tag_name(domain, name)
       self._store_tag_value(domain, value)
+
+
+class ScheduledIOPool(Thread):
+  """Schedule events to an IO worker pool.
+  """
+  def __init__(self, workers, delay):
+    super(ScheduledIOPool, self).__init__()
+    self.scheduler = sched.scheduler(time.time, time.sleep)
+    self.thread_pool = ThreadPoolExecutor(max_workers=workers)
+    self.delay = delay
+    self.shutdown = False
+    self.daemon = True
+
+  def shutdown(self):
+    self.shutdown = True
+
+  # TODO shutdown
+  def run(self):
+    while not self.shutdown:
+      try:
+        self.scheduler.run()
+        time.sleep(.1)    # TODO: no wait/notify when queue is empty
+      except:     # TODO log
+        print "Unexpected error scheduling IO:", \
+             sys.exc_info()[0]
+    self.thread_pool.shutdown()
+
+  def cancel(self, event):
+    return self.scheduler.cancel(event)
+
+  def schedule(self, *args):
+    return self.scheduler.enter(self.delay, 1, \
+               self.thread_pool.submit, args)
+
+class TimedBatchTable(object):
+  """Schedule batch_writer flush events to an IO worker pool.  Datapoints are
+      flushed when buffer is full OR DELAY timer expires.
+  """
+
+  DELAY = 2     # TODO make configurable
+  WORKERS = 5   # TODO make configurable
+  io_pool = ScheduledIOPool(WORKERS, DELAY)
+  io_pool.start()
+
+  #TODO where is this called?
+  @staticmethod
+  def shutdown():
+    TimedBatchTable.io_pool.shutdown()
+  
+  def __init__(self, batch_table):
+    self.lock = Lock()  # lock for datastores dict
+    self.batch_table = batch_table
+    self.flush_event = None
+
+  def flush(self):
+    self.batch_table.flush()
+
+  def put_item(self, *args, **kwargs):
+    with self.lock:
+      if self.flush_event:
+        try:
+          TimedBatchTable.io_pool.cancel(self.flush_event)
+        except ValueError:  # TODO log
+          print "warning: flush_event event expired."
+      self.batch_table.put_item(*args, **kwargs)
+      self.flush_event = TimedBatchTable.io_pool.schedule(self._flush)
+
+  def _flush(self):
+    try:
+      with self.lock:
+        self.flush_event = None
+        self.batch_table.flush()
+    except:       # TODO log
+      print "Unexpected error flushing datapoints:", \
+          sys.exc_info()[0]
+
 

@@ -61,7 +61,8 @@ def index_range_key(timestamp, tags):
 def data_points_key(domain, metric, timestamp, tags):
   """Create datapoints hash key data.
   """
-  return '|'.join([index_hash_key(domain, metric), index_range_key(timestamp, tags)])
+  return '|'.join([index_hash_key(domain, metric), index_range_key(timestamp,
+    tags)])
 
 def hdata_points_key(domain, metric, timestamp, tags):
   """Create datapoints hash key.
