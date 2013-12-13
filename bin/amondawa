@@ -23,84 +23,11 @@
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
+
 from tests.http_writer import *
+from tests.stats import Intervals
+
 import time
-
-class Intervals(object):
-  def __init__(self):
-    self.intervals = []
-    self.totals = []
-
-  def start_interval(self):
-    assert not self.running()
-    self.intervals.append([time.time()])
-
-  def push_interval(self, totals):
-    assert self.running()
-    self.totals.append(totals)
-    self.intervals[-1].append(time.time())
-
-  def running(self):
-    return self.intervals and len(self.intervals[-1]) == 1
-
-  def print_history(self, current):
-    current_elapsed = 0
-    if self.running():
-      print '---------'
-      current_elapsed = self.current_elapsed()
-      print 'current:', self.range_str(self.intervals[-1]), ':', current
-      current_ = current.copy()
-      for k in current_:
-        current_[k] /=  current_elapsed
-      print 'current rate:', current_
-
-    if not self.totals: return
-    i = 0
-    for total in self.totals:
-      total = total.copy()
-      print '---------'
-      print self.range_str(self.intervals[i]), ':', total
-      for k in total:
-        total[k] /= self.elapsed(self.intervals[i])
-      print 'rate:', total
-      i += 1
-    total_completed_time = self.total_completed_time()
-    print '---------'
-    total = _sum_totals(self.totals + [current])
-    print 'grand total:', total
-    for k in total:
-      total[k] /= total_completed_time + current_elapsed
-    print 'grand total rate:', total
- 
-  def range_str(self, interval):
-    if len(interval) == 2:
-      return '-'.join(map(str, interval))
-    else:
-      return '-'.join(map(str, [interval[0], time.time()]))
-
-  def elapsed(self, interval):
-    if len(interval) == 2:
-      return interval[1] - interval[0]
-    else:
-      return time.time() - interval[0]
-
-  def paused(self):
-    return not self.running()
-
-  def current_elapsed(self):
-    if self.running():
-      return self.elapsed(self.intervals[-1])
-    return 0
-
-  def total_completed_time(self):
-    return sum(map(self.elapsed, self._closed_intervals()))
-
-  def total_time(self):
-    return self.current_elapsed() + self.total_completed_time() 
-
-  def _closed_intervals(self):
-    return filter(lambda i: len(i) == 2, self.intervals)
-
 
 INTERVALS = Intervals()
 
@@ -139,7 +66,6 @@ resume       : resume writers
 pause        : pause writers
 stop         : terminate writers
 status       : show status
-totals       : show totals
 streams      : show streams
 """
 
@@ -195,7 +121,7 @@ def pause():
     writer.pause()
     totals.append(writer.reset_stats())
   if WRITERS: 
-    INTERVALS.push_interval(_sum_totals(totals))
+    INTERVALS.end_interval(totals)
 
 def stop():
   global WRITERS, INTERVALS
@@ -204,30 +130,16 @@ def stop():
     writer.kill()
     totals.append(writer.reset_stats())
   if WRITERS: 
-    INTERVALS.push_interval(_sum_totals(totals))
+    INTERVALS.end_interval(totals)
   WRITERS = []
 
 def status():
-  global WRITERS
-  print 'total time = %s' % INTERVALS.total_time()
-  for writer in WRITERS:
-    print writer.status()
-
-def totals():
   global WRITERS, INTERVALS
   sub_totals = [writer.totals() for writer in WRITERS]
   for sub in sub_totals:
     print sub
-  INTERVALS.print_history(_sum_totals(sub_totals))
+  INTERVALS.print_history(sub_totals)
 
-def _sum_totals(totals):
-  ret = {}
-  for t in totals:
-    if not ret:
-      ret.update(t)
-    else:
-      for k in t: ret[k] += t[k]
-  return ret
  
 def streams():
   global WRITERS

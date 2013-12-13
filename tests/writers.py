@@ -25,11 +25,6 @@ from threading import Thread
 import random, math
 from tests.data import *
 
-THREAD_RATE = 1     # per/sec
-TOTAL_TIME = 10      # minutes
-
-SET_SIZE = 20        # how many datapoints in a set
-
 AMONDAWA_CONTEXT = Context(Emin=-128, Emax=126, prec=38)
 
 class TestData(object):
@@ -67,7 +62,7 @@ class MetricWriter(Thread):
   """Generate metrics, tags, datapoints.
   """
   def __init__(self, domain, metric, tags, min_value, max_value, sleeptime, 
-      set_size=SET_SIZE, total_time=TOTAL_TIME):
+      batch_size=20, duration=10):
     super(MetricWriter, self).__init__()
     self.datagen = TestData(min_value, max_value)
     self.metric = metric
@@ -75,20 +70,38 @@ class MetricWriter(Thread):
     self.min_value = min_value
     self.max_value = max_value
     self.sleeptime = sleeptime
-    self.total_time = total_time
-    self.set_size = set_size
+    self.duration = duration
+    self.batch_size = batch_size
     self.count = 0
+    self.paused = False
+    self.stopped = False
+
+    self.daemon = True
+
+  def reset_stats(self):
+    self.count = 0
+
+  def pause(self):
+    self.paused = True
+
+  def unpause(self):
+    self.paused = False
+
+  def kill(self):
+    self.stopped = True
+
+  def __str__(self):
+    return str((self.metric, self.tags))
 
 class RandomWriter(MetricWriter):
   """Generate random metrics, tags, datapoints.
   """
-  def __init__(self, rate=THREAD_RATE):
+  def __init__(self, rate=1, batch_size=20, duration=10):
     metric = random.choice(all_metrics.keys())
     min_value, max_value = all_metrics[metric]
     tags = dict(map(lambda kv: [kv[0], random.choice(kv[1])], 
       all_tags.items()))
     domain = random.choice(all_domains)
     super(RandomWriter, self).__init__(domain, metric, tags, min_value, 
-        max_value, 1/Decimal(rate))
-
+        max_value, 1/Decimal(rate), batch_size=batch_size, duration=duration)
 

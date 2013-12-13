@@ -37,13 +37,13 @@ all_metrics = {
   'free_birds': [0, 10*1024*1024],
   'bytes_in':  [0, 1024*1024],
   'bytes_out': [0, 1024*1024]
-} #7
+}
 
 all_tags = {
-  'match':     ['bbbbb','rrrr', '1889', 'tagtagtag'],              #4
-  'type':      ['storage', 'network', 'compute', 'time', 'space'], #5
-  'host':      ['10.0.0.1', '10.2.2.1', '10.0.0.2', '172.4.5.1'],  #4
-  'name':      ['aaaa40', 'dan', 'bbbb56', 'consistent'],          #4
-  'protected': ['protected', 'infrastructure', 'blah'],            #3
-  'group':     ['group1', 'group2', 'group3', 'group4']            #4
+  'match':     ['bbbbb','rrrr', '1889', 'tagtagtag'],
+  'type':      ['storage', 'network', 'compute', 'time', 'space'],
+  'host':      ['10.0.0.1', '10.2.2.1', '10.0.0.2', '172.4.5.1'],
+  'name':      ['aaaa40', 'dan', 'bbbb56', 'consistent'],
+  'protected': ['protected', 'infrastructure', 'blah'],
+  'group':     ['group1', 'group2', 'group3', 'group4']
 }

@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-#
-# vim: filetype=python
-#
 # Copyright (c) 2013 Daniel Gardner
 # All rights reserved.
 #
@@ -24,9 +20,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from tests.http_writer import *
+import simplejson, httplib
+from threading import Thread
 
-for i in range(2):
-  writer = RandomHTTPWriter('127.0.0.1', 
-      5000, '/api/v1/datapoints')
-  writer.start()
+class QueryRunner(Thread):
+  def __init__(self, host, port):
+    super(QueryRunner, self).__init__()
+    self.connection = httplib.HTTPConnection(host, port)
+    
+  def perform_query(self, query):
+    json = simplejson.dumps(query)
+    self.connection.request("POST", '/api/v1/datapoints/query', json, 
+        {'Content-Type': 'application/json'})
+    return self.connection.getresponse()
+ 
+  def run(self):
+    pass

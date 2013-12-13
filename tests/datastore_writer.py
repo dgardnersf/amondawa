@@ -24,26 +24,25 @@ from amondawa.datastore import Datastore, DataPoint, DataPointSet
 from tests.writers import RandomWriter
 import time
 
-THREAD_RATE = 1    # per/sec
 
 class RandomDatastoreWriter(RandomWriter):
   """Write random metrics, tags, datapoints directly to amondawa datastore.
   """
-  def __init__(self, connection, rate=THREAD_RATE):
+  def __init__(self, connection, rate=1):
     super(RandomDatastoreWriter, self).__init__(rate) 
     self.datastore = Datastore(connection)
 
   def run(self):
     dps = DataPointSet(self.metric, self.tags)
     stop_time = time.time() + 60*self.total_time 
-    count = 0
+    self.count = 0
     while time.time() < stop_time:
       time.sleep(self.sleeptime)
       t = int(round(time.time() * 1000))
       value = self.datagen.value(t)
       dps.append(DataPoint(t, value))
-      count += 1
-      if not count % self.set_size:
+      self.count += 1
+      if not self.count % self.batch_size:
         self.datastore.put_data_points(dps)
         dps = DataPointSet(self.metric, self.tags)
 
@@ -51,5 +50,3 @@ class RandomDatastoreWriter(RandomWriter):
       self.datastore.put_data_points(dps)
     self.datastore.close()
 
-  def __str__(self):
-    return str((self.metric, self.tags))

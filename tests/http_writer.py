@@ -20,39 +20,40 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from pprint import pprint
 from tests.writers import RandomWriter
-import httplib
-import simplejson, time
+import simplejson, sys, time, httplib, pprint
 
-THREAD_RATE = 20    # per/sec
 
 class RandomHTTPWriter(RandomWriter):
   """Write random metrics, tags, datapoints to amondawa datastore via HTTP.
   """
-  def __init__(self, host, port, path, rate=THREAD_RATE):
-    super(RandomHTTPWriter, self).__init__(rate) 
+  def __init__(self, host, port, path='/api/v1/datapoints', rate=20, batch_size=20, duration=10):
+    super(RandomHTTPWriter, self).__init__(rate=rate, batch_size=batch_size, duration=duration) 
     self.connection = httplib.HTTPConnection(host, port)
     self.path = path
     self.dps = [{
       'name': self.metric,
       'tags': self.tags,
     }]
+    self._init_stats()
 
   def reset(self):
     datapoints = self.dps[0]['datapoints'] = []
     return datapoints
 
   def run(self):
-    stop_time = time.time() + 60*self.total_time 
-    count = 0
+    stop_time = time.time() + 60*self.duration 
+    self.count = 0
     datapoints = self.reset()
-    while time.time() < stop_time:
+    while time.time() < stop_time and not self.stopped:
+      if self.paused:
+        time.sleep(.1)
+        continue
       time.sleep(self.sleeptime)
       t = int(round(time.time() * 1000))
       datapoints.append([t, self.datagen.value(t)])
-      count += 1
-      if not count % self.set_size:
+      self.count += 1
+      if not self.count % self.batch_size:
         self.send()
         datapoints = self.reset()
 
@@ -61,11 +62,64 @@ class RandomHTTPWriter(RandomWriter):
 
     self.connection.close()
 
+  def status(self):
+    return 'count:', self.count, \
+        'http status counts: ', pprint.pformat(self.status_codes), \
+        'last_exc_info:', pprint.pformat(self.last_exc_info), \
+        'exceptions counts:', pprint.pformat(self.exceptions)
+
+  def reset_stats(self):
+    totals = self.totals()
+    super(RandomHTTPWriter, self).reset_stats()
+    self._init_stats()
+    return totals
+
+  def _init_stats(self):
+    self.status_codes = {}
+    self.exceptions = {}
+    self.last_exc_info = ()
+    self.requests = 0
+
+  def totals(self):
+    return {
+        'request'     : self.requests,
+        'data_points' : self.count,
+        'success'     : self._total_success(),
+        'failed'      : self._total_failed(),
+        'error'       : sum(self.exceptions.values())
+    }
+
   def send(self):
-    pprint(self.dps)
-    self.connection.request("POST", self.path, simplejson.dumps(self.dps),
-      {'Content-Type': 'application/json'})
-    response = self.connection.getresponse()
-    data = response.read()
+    try:
+      self.connection.request("POST", self.path, simplejson.dumps(self.dps),
+        {'Content-Type': 'application/json'})
+      response = self.connection.getresponse()
+      data = response.read()
+      self._count_response(response)
+      self.requests += 1
+    except:
+      self._count_error(sys.exc_info())
+
+  def _count_error(self, exc_info):
+    self.last_exc_info = type_, value, self.last_traceback = exc_info
+    if type_ in self.exceptions:
+      self.exceptions[type_] +=1
+    else:
+      self.exceptions[type_] = 1
+
+  def _count_response(self, response):
+    status = response.status
+    if status in self.status_codes:
+      self.status_codes[status] +=1
+    else:
+      self.status_codes[status] = 1
+
+  def _total_failed(self):
+    return sum([item[1] for item in filter(lambda (k, v): k >= 300,
+      self.status_codes.items())])
+
+  def _total_success(self):
+    return sum([item[1] for item in filter(lambda (k, v): k < 300,
+      self.status_codes.items())])
 
 
