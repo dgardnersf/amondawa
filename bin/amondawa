@@ -1,0 +1,238 @@
+#!/usr/bin/env ipython --autocall=2 -i
+#
+# vim: filetype=python
+#
+# Copyright (c) 2013 Daniel Gardner
+# All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish, dis-
+# tribute, sublicense, and/or sell copies of the Software, and to permit
+# persons to whom the Software is furnished to do so, subject to the fol-
+# lowing conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABIL-
+# ITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+# SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+from tests.http_writer import *
+import time
+
+class Intervals(object):
+  def __init__(self):
+    self.intervals = []
+    self.totals = []
+
+  def start_interval(self):
+    assert not self.running()
+    self.intervals.append([time.time()])
+
+  def push_interval(self, totals):
+    assert self.running()
+    self.totals.append(totals)
+    self.intervals[-1].append(time.time())
+
+  def running(self):
+    return self.intervals and len(self.intervals[-1]) == 1
+
+  def print_history(self, current):
+    current_elapsed = 0
+    if self.running():
+      print '---------'
+      current_elapsed = self.current_elapsed()
+      print 'current:', self.range_str(self.intervals[-1]), ':', current
+      current_ = current.copy()
+      for k in current_:
+        current_[k] /=  current_elapsed
+      print 'current rate:', current_
+
+    if not self.totals: return
+    i = 0
+    for total in self.totals:
+      total = total.copy()
+      print '---------'
+      print self.range_str(self.intervals[i]), ':', total
+      for k in total:
+        total[k] /= self.elapsed(self.intervals[i])
+      print 'rate:', total
+      i += 1
+    total_completed_time = self.total_completed_time()
+    print '---------'
+    total = _sum_totals(self.totals + [current])
+    print 'grand total:', total
+    for k in total:
+      total[k] /= total_completed_time + current_elapsed
+    print 'grand total rate:', total
+ 
+  def range_str(self, interval):
+    if len(interval) == 2:
+      return '-'.join(map(str, interval))
+    else:
+      return '-'.join(map(str, [interval[0], time.time()]))
+
+  def elapsed(self, interval):
+    if len(interval) == 2:
+      return interval[1] - interval[0]
+    else:
+      return time.time() - interval[0]
+
+  def paused(self):
+    return not self.running()
+
+  def current_elapsed(self):
+    if self.running():
+      return self.elapsed(self.intervals[-1])
+    return 0
+
+  def total_completed_time(self):
+    return sum(map(self.elapsed, self._closed_intervals()))
+
+  def total_time(self):
+    return self.current_elapsed() + self.total_completed_time() 
+
+  def _closed_intervals(self):
+    return filter(lambda i: len(i) == 2, self.intervals)
+
+
+INTERVALS = Intervals()
+
+HOST = 'amondawa.elasticbeanstalk.com'
+PORT = 80
+RATE = 100.                  # overall rate (split across NTHREADS)
+NTHREADS = 10                # how many threads to use
+DURATION = 10                # duration in minutes
+BATCH_SIZE = 2               # datapoints per request
+
+WRITERS = []                 # writers
+
+def settings():
+  """Show current settings.
+  """
+  global HOST, PORT, DURATION, RATE, NTHREADS
+  print """
+host:       %s
+port:       %s
+duration:   %s
+rate:       %s
+threads:    %s
+batch_size: %s
+""" % (HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE)
+
+def commands():
+  print """
+host         : set host
+port         : set port
+rate         : set overall rate
+threads      : set threads
+batch_size   : set per/thread batch size
+start        : create threads and start sending 
+flush        : flush writers
+resume       : resume writers
+pause        : pause writers
+stop         : terminate writers
+status       : show status
+totals       : show totals
+streams      : show streams
+"""
+
+def host(host):
+  global HOST
+  HOST = host
+  settings()
+
+def port(port):
+  global PORT
+  PORT = port
+  settings()
+  
+def rate(rate):
+  global RATE
+  RATE = rate
+  settings()
+
+def threads(count):
+  global NTHREADS
+  NTHREADS = count
+  settings()
+
+def batch_size(batch_size):
+  global BATCH_SIZE
+  BATCH_SIZE = batch_size
+  settings()
+
+def start():
+  global WRITERS, NTHREADS, RATE, INTERVALS
+  if WRITERS: kill()
+  WRITERS = [RandomHTTPWriter(HOST, PORT, rate=RATE/NTHREADS, 
+     duration=DURATION, batch_size=BATCH_SIZE) for i in range(NTHREADS)]
+  for writer in WRITERS:
+    writer.start()
+  if WRITERS: INTERVALS.start_interval()
+
+def flush():
+  global WRITERS
+  for writer in WRITERS:
+    print writer.flush()
+
+def resume():
+  global WRITERS, INTERVALS
+  for writer in WRITERS:
+    writer.unpause()
+  if WRITERS: INTERVALS.start_interval()
+
+def pause():
+  global WRITERS, INTERVALS
+  totals = []
+  for writer in WRITERS:
+    writer.pause()
+    totals.append(writer.reset_stats())
+  if WRITERS: 
+    INTERVALS.push_interval(_sum_totals(totals))
+
+def stop():
+  global WRITERS, INTERVALS
+  totals = []
+  for writer in WRITERS:
+    writer.kill()
+    totals.append(writer.reset_stats())
+  if WRITERS: 
+    INTERVALS.push_interval(_sum_totals(totals))
+  WRITERS = []
+
+def status():
+  global WRITERS
+  print 'total time = %s' % INTERVALS.total_time()
+  for writer in WRITERS:
+    print writer.status()
+
+def totals():
+  global WRITERS, INTERVALS
+  sub_totals = [writer.totals() for writer in WRITERS]
+  for sub in sub_totals:
+    print sub
+  INTERVALS.print_history(_sum_totals(sub_totals))
+
+def _sum_totals(totals):
+  ret = {}
+  for t in totals:
+    if not ret:
+      ret.update(t)
+    else:
+      for k in t: ret[k] += t[k]
+  return ret
+ 
+def streams():
+  global WRITERS
+  for writer in WRITERS:
+    print writer
+
+
+commands()
