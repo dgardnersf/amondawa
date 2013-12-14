@@ -21,6 +21,7 @@
 # IN THE SOFTWARE.
 
 from time import time, asctime, localtime
+import random
 
 class Intervals(object):
   """Basic stats and timings.
@@ -30,10 +31,14 @@ class Intervals(object):
     self.totals = []
 
   def start_interval(self):
+    """Start a new interval.
+    """
     assert not self.running()
     self.intervals.append([time()])
 
   def end_interval(self, totals):
+    """Stop the current interval.
+    """
     assert self.running()
     self.totals.append(Intervals._sum(totals))
     self.intervals[-1].append(time())
@@ -100,16 +105,16 @@ class Intervals(object):
       return self.elapsed(self.intervals[-1])
     return 0
 
-  def start(self):
-    if self.intervals:
-      return self.intervals[0][0]
-
-  def end(self):
-    if self.intervals:
-      if len(self.intervals[-1]) == 2:
-        return self.intervals[-1][1]
-      else:
-        return time()
+#  def start(self):
+#    if self.intervals:
+#      return self.intervals[0][0]
+#
+#  def end(self):
+#    if self.intervals:
+#      if len(self.intervals[-1]) == 2:
+#        return self.intervals[-1][1]
+#      else:
+#        return time()
 
   def total_completed_time(self):
     return sum(map(self.elapsed, self._closed_intervals()))
@@ -117,8 +122,27 @@ class Intervals(object):
   def total_time(self):
     return self.current_elapsed() + self.total_completed_time() 
 
+  def choose_random_interval(self):
+    start_interval = random.randrange(0, len(self.intervals))
+    end_interval = random.randrange(start_interval, len(self.intervals))
+
+    start = self._choose_random_time(self.intervals[start_interval])
+    end = self._choose_random_time(self.intervals[end_interval], start)
+
+    return start, end
+
   def _closed_intervals(self):
     return filter(lambda i: len(i) == 2, self.intervals)
+
+  def _choose_random_time(self, interval, start=None):
+    if start == None:
+      start = int(1000*interval[0])
+    if len(interval) == 1:
+      end = int(1000*time())
+    else:
+      end = int(1000*interval[1])
+
+    return random.randrange(start, end + 1)
 
   @staticmethod
   def _sum(dicts):

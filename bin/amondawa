@@ -47,6 +47,8 @@ QUERY_RUNNER  = None     # query thread/runner
 LAST_QUERY    = None     # last query performed
 LAST_RESPONSE = None     # last response received
 
+SAVED_QUERIES = {}       # saved queries
+
 def settings():
   """Show current settings.
   """
@@ -67,6 +69,7 @@ amondawa commands
 -----------------
 host         : set host
 port         : set port
+host_port    : set host and port
 
 batch_size   : set per/thread batch size
 flush        : flush writers
@@ -87,6 +90,9 @@ random_query : construct a random query (dict)
                based on current streams
 query        : perform a query (specified as dict)
 query_last   : repeat the previous query
+named_query  : repeat a saved query
+save_query   : save current query
+list_queries : list query names
 """
 
 def host(host, supress=False):
@@ -172,6 +178,14 @@ def stop():
 
 def status():
   global WRITERS, INTERVALS
+  if not WRITERS:
+    status = 'STOPPED'
+  elif INTERVALS.running():
+    status = 'RUNNING'
+  else:
+    status = 'PAUSED'
+  print 'status:', status
+  print
   sub_totals = [writer.totals() for writer in WRITERS]
   for sub in sub_totals:
     print sub
@@ -182,9 +196,21 @@ def streams():
   for writer in WRITERS:
     print writer
 
+def save_query(name):
+  global SAVED_QUERIES, LAST_QUERY
+  SAVED_QUERIES[name] = LAST_QUERY
+
 def query_last():
   global LAST_QUERY
   return query(LAST_QUERY)
+
+def named_query(name):
+  global SAVED_QUERIES
+  return query(SAVED_QUERIES[name])
+
+def list_queries():
+  global SAVED_QUERIES
+  return SAVED_QUERIES.keys()
 
 def query(query=None):
   global QUERY_RUNNER, HOST, PORT, LAST_QUERY, LAST_RESPONSE, WRITERS
@@ -206,9 +232,8 @@ def query(query=None):
 
 def random_query():
   if not WRITERS: return
-  start, end = map(lambda t: int(1000*t), (INTERVALS.start(), INTERVALS.end()))
-  start = random.randrange(start, end)
-  end = random.randrange(start, end)
+  start, end = INTERVALS.choose_random_interval()
+
   metrics = []
   query = {
       'start_absolute': start,
