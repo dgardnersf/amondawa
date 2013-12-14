@@ -151,7 +151,7 @@ class Schema(object):
     """Query index for keys.
     """
     key = util.index_hash_key(domain, metric)
-    time_range = [str(util.base_time(v)) for v in (start_time, end_time)]
+    time_range = map(str, [util.base_time(start_time), util.base_time(end_time) + 1])
     cache_key = '|'.join([key, '|'.join(time_range)])
 
     result =  Schema.index_key_lru.get(cache_key)

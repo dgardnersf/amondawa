@@ -90,7 +90,7 @@ class Datastore(object):
     """
     # for each matching index key, create a datapoints query thread
     query_threads = []
-    for index_key in self.__query_index_keys(query.name, query.start_time, 
+    for index_key in self._query_index_keys(query.name, query.start_time, 
         query.end_time, query.tags, self.domain):
       query_threads.append(QueryTask(self.dynamodb, index_key,
         query.start_time, query.end_time))
@@ -108,7 +108,7 @@ class Datastore(object):
     """Query datapoint tags by time interval and tags.
     """
     # get index keys (domain_metric_tbase_tags)
-    index_keys = self.__query_index_keys(query.name, 
+    index_keys = self._query_index_keys(query.name, 
         query.start_time, query.end_time, query.tags, self.domain)
     # convert tag part to kv pair dictionaries
     return util.to_multi_map([key.get_tags() for key in index_keys])
@@ -124,7 +124,7 @@ class Datastore(object):
     self.dynamodb.close()
 
   @timeit
-  def __query_index_keys(self, metric, start_time, end_time, tags, domain):
+  def _query_index_keys(self, metric, start_time, end_time, tags, domain):
     """Query index keys by time interval and tags.
     """
     return filter(lambda key: len(tags) == 0 or key.has_tags(tags),

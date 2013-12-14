@@ -87,7 +87,7 @@ class MetricWriter(Thread):
   def unpause(self):
     self.paused = False
 
-  def kill(self):
+  def stop(self):
     self.stopped = True
 
   def __str__(self):

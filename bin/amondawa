@@ -32,19 +32,20 @@ import time, random, simplejson
 
 INTERVALS = Intervals()
 
-REGION = 'us-west-2'
-HOST = 'amondawa.elasticbeanstalk.com'
-PORT = 80
-RATE = 100.                  # overall rate (split across NTHREADS)
-NTHREADS = 10                # how many threads to use
-DURATION = 10                # duration in minutes
-BATCH_SIZE = 2               # datapoints per request
+REGION        = 'us-west-2'
 
-WRITERS = []                 # writers
+HOST          = 'amondawa.elasticbeanstalk.com'
+PORT          = 80
 
-QUERY_RUNNER = None
-LAST_QUERY = None
-LAST_RESPONSE = None
+RATE          = 100.     # overall rate (split across NTHREADS)
+NTHREADS      = 10       # how many threads to use
+DURATION      = 10       # duration in minutes
+BATCH_SIZE    = 2        # datapoints per request
+
+WRITERS       = []       # writers
+QUERY_RUNNER  = None     # query thread/runner
+LAST_QUERY    = None     # last query performed
+LAST_RESPONSE = None     # last response received
 
 def settings():
   """Show current settings.
@@ -62,6 +63,8 @@ batch_size: %s
 
 def commands():
   print """
+amondawa commands
+-----------------
 host         : set host
 port         : set port
 
@@ -72,6 +75,7 @@ start        : create threads and start sending
 pause        : pause writers
 resume       : resume writers
 stop         : terminate writers
+reset        : reset writers, intervals
 
 rate         : set aggregate rate
 threads      : set threads
@@ -82,18 +86,26 @@ streams      : show current streams
 random_query : construct a random query (dict) 
                based on current streams
 query        : perform a query (specified as dict)
+query_last   : repeat the previous query
 """
 
-def host(host):
+def host(host, supress=False):
   global HOST
   HOST = host
-  settings()
+  if not supress:
+    settings()
 
-def port(port):
+def port(port, supress=False):
   global PORT
   PORT = port
+  if not supress:
+    settings()
+
+def host_port(host_, port_):
+  host(host_, True)
+  port(port_, True)
   settings()
-  
+
 def rate(rate):
   global RATE
   RATE = rate
@@ -109,9 +121,19 @@ def batch_size(batch_size):
   BATCH_SIZE = batch_size
   settings()
 
+def reset():
+  global INTERVALS, WRITERS, QUERY_RUNNER, LAST_QUERY, \
+       LAST_RESPONSE
+  stop()
+  INTERVALS = Intervals()
+  WRITERS = []
+  QUERY_RUNNER = None
+  LAST_QUERY = None
+  LAST_RESPONSE = None
+
 def start():
   global WRITERS, NTHREADS, RATE, INTERVALS
-  if WRITERS: kill()
+  stop()
   WRITERS = [RandomHTTPWriter(HOST, PORT, rate=RATE/NTHREADS, 
      duration=DURATION, batch_size=BATCH_SIZE) for i in range(NTHREADS)]
   for writer in WRITERS:
@@ -135,16 +157,16 @@ def pause():
   for writer in WRITERS:
     writer.pause()
     totals.append(writer.reset_stats())
-  if WRITERS: 
+  if WRITERS and INTERVALS.running(): 
     INTERVALS.end_interval(totals)
 
 def stop():
   global WRITERS, INTERVALS
   totals = []
   for writer in WRITERS:
-    writer.kill()
+    writer.stop()
     totals.append(writer.reset_stats())
-  if WRITERS: 
+  if WRITERS and INTERVALS.running(): 
     INTERVALS.end_interval(totals)
   WRITERS = []
 
@@ -160,8 +182,15 @@ def streams():
   for writer in WRITERS:
     print writer
 
+def query_last():
+  global LAST_QUERY
+  return query(LAST_QUERY)
+
 def query(query=None):
-  global QUERY_RUNNER, HOST, PORT, LAST_QUERY, LAST_RESPONSE
+  global QUERY_RUNNER, HOST, PORT, LAST_QUERY, LAST_RESPONSE, WRITERS
+  if not WRITERS: 
+    return
+
   if not QUERY_RUNNER:
     QUERY_RUNNER = QueryRunner(HOST, PORT)
 
@@ -170,7 +199,8 @@ def query(query=None):
 
   LAST_QUERY = query
   response = QUERY_RUNNER.perform_query(query)
-  LAST_RESPONSE = response.status, response.reason, simplejson.loads(response.read())
+  LAST_RESPONSE = response.status, response.reason, \
+        simplejson.loads(response.read())
 
   return LAST_QUERY, LAST_RESPONSE
 
