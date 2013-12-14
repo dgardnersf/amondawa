@@ -26,11 +26,13 @@
 
 from tests.http_writer import *
 from tests.stats import Intervals
+from tests.query import QueryRunner
 
-import time
+import time, random, simplejson
 
 INTERVALS = Intervals()
 
+REGION = 'us-west-2'
 HOST = 'amondawa.elasticbeanstalk.com'
 PORT = 80
 RATE = 100.                  # overall rate (split across NTHREADS)
@@ -40,33 +42,46 @@ BATCH_SIZE = 2               # datapoints per request
 
 WRITERS = []                 # writers
 
+QUERY_RUNNER = None
+LAST_QUERY = None
+LAST_RESPONSE = None
+
 def settings():
   """Show current settings.
   """
-  global HOST, PORT, DURATION, RATE, NTHREADS
+  global HOST, PORT, DURATION, RATE, NTHREADS, REGION
   print """
+region:     %s
 host:       %s
 port:       %s
 duration:   %s
 rate:       %s
 threads:    %s
 batch_size: %s
-""" % (HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE)
+""" % (REGION, HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE)
 
 def commands():
   print """
 host         : set host
 port         : set port
-rate         : set overall rate
-threads      : set threads
+
 batch_size   : set per/thread batch size
-start        : create threads and start sending 
 flush        : flush writers
-resume       : resume writers
+
+start        : create threads and start sending 
 pause        : pause writers
+resume       : resume writers
 stop         : terminate writers
+
+rate         : set aggregate rate
+threads      : set threads
+
 status       : show status
-streams      : show streams
+streams      : show current streams
+
+random_query : construct a random query (dict) 
+               based on current streams
+query        : perform a query (specified as dict)
 """
 
 def host(host):
@@ -140,11 +155,50 @@ def status():
     print sub
   INTERVALS.print_history(sub_totals)
 
- 
 def streams():
   global WRITERS
   for writer in WRITERS:
     print writer
 
+def query(query=None):
+  global QUERY_RUNNER, HOST, PORT, LAST_QUERY, LAST_RESPONSE
+  if not QUERY_RUNNER:
+    QUERY_RUNNER = QueryRunner(HOST, PORT)
+
+  if not query:
+    query = random_query()
+
+  LAST_QUERY = query
+  response = QUERY_RUNNER.perform_query(query)
+  LAST_RESPONSE = response.status, response.reason, simplejson.loads(response.read())
+
+  return LAST_QUERY, LAST_RESPONSE
+
+def random_query():
+  if not WRITERS: return
+  start, end = map(lambda t: int(1000*t), (INTERVALS.start(), INTERVALS.end()))
+  start = random.randrange(start, end)
+  end = random.randrange(start, end)
+  metrics = []
+  query = {
+      'start_absolute': start,
+      'end_absolute': end,
+      'metrics': metrics
+      }
+ 
+  # pick some streams to match
+  streams = random.sample(WRITERS, random.randint(1,3))
+
+  # for each stream pick some tags that will match
+  mtags = {}
+  for stream in streams:
+    metric, tags = stream.metric, stream.tags
+    mkeys = random.sample(tags.keys(), random.randint(1,3))
+    mtags = dict(zip(mkeys, [tags[k] for k in mkeys]))
+    metrics.append({
+      'tags': mtags,
+      'name': metric
+      })
+  return query
 
 commands()

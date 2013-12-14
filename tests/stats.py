@@ -35,34 +35,43 @@ class Intervals(object):
 
   def end_interval(self, totals):
     assert self.running()
-    self.totals.append(Intervals._sum_dicts(totals))
+    self.totals.append(Intervals._sum(totals))
     self.intervals[-1].append(time())
 
   def running(self):
     return self.intervals and len(self.intervals[-1]) == 1
 
+  def paused(self):
+    return not self.running()
+
   def print_history(self, current):
-    current = Intervals._sum_dicts(current)
+    current = Intervals._sum(current)
     if self.running():
       print '---------'
-      print 'current:', self.range_str(self.intervals[-1]), ':', current
-      print 'current rate:', self.rates(current, self.intervals[-1])
+      print self.range_str(self.intervals[-1]), "(CURRENT)"
+      print '---------'
+      print current
+      print 'rate:', self.rates(current, self.intervals[-1])
 
     if not self.totals: return
     i = 0
     for total in self.totals:
       print '---------'
-      print self.range_str(self.intervals[i]), ':', total
+      print self.range_str(self.intervals[i])
+      print '---------'
+      print total
       print 'rate:', self.rates(total, self.intervals[i])
       i += 1
 
-    print '---------'
     total_time = self.total_time()
-    total = Intervals._sum_dicts(self.totals + [current])
-    print 'grand total:', total
+    total = Intervals._sum(self.totals + [current])
+    print '---------'
+    print 'total'
+    print '---------'
+    print total
     for k in total:
       total[k] /= total_time 
-    print 'grand total rate:', total
+    print 'rate:', total
  
   def range_str(self, interval):
     if len(interval) == 2:
@@ -86,13 +95,21 @@ class Intervals(object):
     else:
       return time() - interval[0]
 
-  def paused(self):
-    return not self.running()
-
   def current_elapsed(self):
     if self.running():
       return self.elapsed(self.intervals[-1])
     return 0
+
+  def start(self):
+    if self.intervals:
+      return self.intervals[0][0]
+
+  def end(self):
+    if self.intervals:
+      if len(self.intervals[-1]) == 2:
+        return self.intervals[-1][1]
+      else:
+        return time()
 
   def total_completed_time(self):
     return sum(map(self.elapsed, self._closed_intervals()))
@@ -104,7 +121,7 @@ class Intervals(object):
     return filter(lambda i: len(i) == 2, self.intervals)
 
   @staticmethod
-  def _sum_dicts(dicts):
+  def _sum(dicts):
     ret = {}
     for t in dicts:
       if not ret:
