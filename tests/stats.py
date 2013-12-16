@@ -105,17 +105,6 @@ class Intervals(object):
       return self.elapsed(self.intervals[-1])
     return 0
 
-#  def start(self):
-#    if self.intervals:
-#      return self.intervals[0][0]
-#
-#  def end(self):
-#    if self.intervals:
-#      if len(self.intervals[-1]) == 2:
-#        return self.intervals[-1][1]
-#      else:
-#        return time()
-
   def total_completed_time(self):
     return sum(map(self.elapsed, self._closed_intervals()))
 

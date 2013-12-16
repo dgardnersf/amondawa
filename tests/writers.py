@@ -40,7 +40,8 @@ class TestData(object):
 
   def __init__(self, min_value, max_value):
     self.type = random.choice([lambda v: int(v), lambda v: str(round(float(v), 3))])
-    self.period_change = random.randint(10, 100)
+    #self.period_change = random.randint(10, 100)
+    self.period_change = 1e9
     self.n = 0
     self.n1 = random.randint(0, len(TestData.period))
     self.f = TestData.period[self.n1 % len(TestData.period)]
