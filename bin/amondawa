@@ -245,13 +245,13 @@ def random_query():
       }
  
   # pick some streams to match
-  streams = random.sample(WRITERS, random.randint(1,3))
+  streams = random.sample(WRITERS, random.randint(1,min(len(WRITERS), 3)))
 
   # for each stream pick some tags that will match
   mtags = {}
   for stream in streams:
     metric, tags = stream.metric, stream.tags
-    mkeys = random.sample(tags.keys(), random.randint(1,3))
+    mkeys = random.sample(tags.keys(), random.randint(1,min(len(tags.keys()), 3)))
     mtags = dict(zip(mkeys, [tags[k] for k in mkeys]))
     metrics.append({
       'tags': mtags,
