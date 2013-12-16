@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.4, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="100px"
+	 height="100px" viewBox="0 0 100 100" enable-background="new 0 0 100 100" xml:space="preserve">
+<g id="Layer_1">
+	<g>
+		<g enable-background="new    ">
+			<g>
+				<defs>
+					<path id="SVGID_29_" d="M85.227,58.71v2.615c0,5.852-6.381,11.779-14.258,11.779v-2.611
+						C78.846,70.493,85.227,64.562,85.227,58.71z"/>
+				</defs>
+				<use xlink:href="#SVGID_29_"  overflow="visible" fill="#737678"/>
+				<clipPath id="SVGID_2_">
+					<use xlink:href="#SVGID_29_"  overflow="visible"/>
+				</clipPath>
+				<g clip-path="url(#SVGID_2_)" enable-background="new    ">
+					<path fill="#737678" d="M85.227,58.71v2.615c0,0.398-0.029,0.797-0.088,1.195v-2.615C85.197,59.509,85.227,59.11,85.227,58.71"
+						/>
+					<path fill="#737678" d="M85.139,59.905v2.615c-0.07,0.498-0.188,0.992-0.346,1.48v-2.613
+						C84.951,60.897,85.068,60.403,85.139,59.905"/>
+					<path fill="#737678" d="M84.793,61.388v2.613c-0.201,0.633-0.475,1.254-0.807,1.859v-2.617
+						C84.318,62.642,84.592,62.021,84.793,61.388"/>
+					<path fill="#737678" d="M83.986,63.243v2.617c-2.227,4.029-7.217,7.244-13.018,7.244v-2.611
+						C76.77,70.493,81.76,67.276,83.986,63.243"/>
+				</g>
+			</g>
+			<g>
+				<polygon fill="#737678" points="70.969,70.493 70.969,73.104 29.016,73.104 27.834,69.538 				"/>
+			</g>
+			<g>
+				<defs>
+					<path id="SVGID_31_" d="M29.016,70.493v2.611c-7.861,0-14.242-5.928-14.242-11.779V58.71
+						C14.773,64.562,21.154,70.493,29.016,70.493z"/>
+				</defs>
+				<use xlink:href="#SVGID_31_"  overflow="visible" fill="#737678"/>
+				<clipPath id="SVGID_4_">
+					<use xlink:href="#SVGID_31_"  overflow="visible"/>
+				</clipPath>
+				<g clip-path="url(#SVGID_4_)" enable-background="new    ">
+					<path fill="#737678" d="M29.016,70.493v2.611c-7.861,0-14.242-5.928-14.242-11.779V58.71
+						C14.773,64.562,21.154,70.493,29.016,70.493"/>
+				</g>
+			</g>
+			<g>
+				<path fill="#C5C6C7" d="M41.887,26.896c7.316,0,13.605,4.34,16.428,10.566c1.469-0.998,3.246-1.59,5.16-1.59
+					c4.955,0,8.961,3.893,9.125,8.771c7.1,0.592,12.627,7.439,12.627,12.883v1.184c0,5.852-6.381,11.783-14.258,11.783H29.016
+					c-7.861,0-14.242-5.932-14.242-11.783v-1.184c0-4.512,3.787-10.711,9.125-12.248c0-0.162-0.025-0.338-0.025-0.512
+					C23.873,34.888,31.938,26.896,41.887,26.896z"/>
+			</g>
+		</g>
+	</g>
+</g>
+<g id="nyt_x5F_exporter_x5F_info" display="none">
+</g>
+</svg>

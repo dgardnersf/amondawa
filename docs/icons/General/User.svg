@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.4, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="100px"
+	 height="100px" viewBox="0 0 100 100" enable-background="new 0 0 100 100" xml:space="preserve">
+<g id="Layer_1">
+	<g>
+		<g enable-background="new    ">
+			<g>
+				<path fill="#C5C6C7" d="M50.002,22.03c6.502,0,11.775,5.236,11.775,11.68c0,6.453-5.273,11.689-11.775,11.689
+					c-6.506,0-11.768-5.236-11.768-11.689C38.234,27.267,43.496,22.03,50.002,22.03z"/>
+			</g>
+			<g>
+				<defs>
+					<path id="SVGID_33_" d="M61.777,33.71v2.52c0,6.455-5.273,11.691-11.775,11.691c-6.506,0-11.768-5.236-11.768-11.691v-2.52
+						c0,6.453,5.262,11.689,11.768,11.689C56.504,45.399,61.777,40.163,61.777,33.71z"/>
+				</defs>
+				<use xlink:href="#SVGID_33_"  overflow="visible" fill="#737678"/>
+				<clipPath id="SVGID_2_">
+					<use xlink:href="#SVGID_33_"  overflow="visible"/>
+				</clipPath>
+				<g clip-path="url(#SVGID_2_)" enable-background="new    ">
+					<path fill="#737678" d="M61.777,33.71v2.52c0,0.566-0.041,1.125-0.117,1.672l-0.107-2.246
+						C61.629,35.11,61.777,34.276,61.777,33.71"/>
+					<path fill="#737678" d="M61.66,35.38v2.521c-0.094,0.646-0.242,1.273-0.436,1.883l-0.453-2.098
+						C60.965,37.077,61.566,36.024,61.66,35.38"/>
+					<path fill="#737678" d="M61.225,37.267v2.518c-0.23,0.719-0.527,1.404-0.887,2.057v-2.521
+						C60.697,38.669,60.994,37.981,61.225,37.267"/>
+					<path fill="#737678" d="M60.338,39.319v2.521c-2,3.619-5.881,6.08-10.336,6.08c-6.506,0-11.768-5.236-11.768-11.691v-2.52
+						c0,6.453,5.262,11.689,11.768,11.689C54.457,45.399,58.338,42.944,60.338,39.319"/>
+				</g>
+			</g>
+		</g>
+		<g enable-background="new    ">
+			<g>
+				<rect x="61.113" y="65.042" fill="#737678" width="1.32" height="2.521"/>
+			</g>
+			<g>
+				<rect x="37.855" y="65.042" fill="#737678" width="1.332" height="2.521"/>
+			</g>
+			<g>
+				<path fill="#C5C6C7" d="M56.727,48.739c7.436,0,13.455,4.51,13.455,11.871v14.838h-7.748V65.042h-1.32v10.406H39.188V65.042
+					h-1.332v10.406h-8.037V60.61c0-7.361,6.018-11.871,13.457-11.871H56.727z"/>
+			</g>
+			<g>
+				<rect x="62.434" y="75.448" fill="#737678" width="7.748" height="2.521"/>
+			</g>
+			<g>
+				<rect x="39.188" y="75.448" fill="#737678" width="21.926" height="2.521"/>
+			</g>
+			<g>
+				<rect x="29.818" y="75.448" fill="#737678" width="8.037" height="2.521"/>
+			</g>
+		</g>
+	</g>
+</g>
+<g id="nyt_x5F_exporter_x5F_info" display="none">
+</g>
+</svg>

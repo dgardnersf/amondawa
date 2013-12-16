@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.4, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="100px"
+	 height="100px" viewBox="0 0 100 100" enable-background="new 0 0 100 100" xml:space="preserve">
+<g id="Layer_1">
+	<g>
+		<rect x="41.756" y="41.497" fill="#8C3123" width="15.477" height="3.18"/>
+	</g>
+	<g>
+		<defs>
+			<path id="SVGID_15_" d="M75.961,51.339v3.178c-4.588-2.094-10.809-4.061-18.729-4.746v-3.18
+				C65.152,47.278,71.373,49.245,75.961,51.339z"/>
+		</defs>
+		<use xlink:href="#SVGID_15_"  overflow="visible" fill="#8C3123"/>
+		<clipPath id="SVGID_2_">
+			<use xlink:href="#SVGID_15_"  overflow="visible"/>
+		</clipPath>
+		<g clip-path="url(#SVGID_2_)" enable-background="new    ">
+			<path fill="#8C3123" d="M75.961,51.339v3.178c-4.588-2.094-10.809-4.061-18.729-4.746v-3.18
+				C65.152,47.278,71.373,49.245,75.961,51.339"/>
+		</g>
+	</g>
+	<g>
+		<defs>
+			<path id="SVGID_17_" d="M41.756,47.097v3.18c-7.473,1.229-13.611,3.717-18,6.027v-3.178
+				C28.145,50.815,34.283,48.329,41.756,47.097z"/>
+		</defs>
+		<use xlink:href="#SVGID_17_"  overflow="visible" fill="#8C3123"/>
+		<clipPath id="SVGID_4_">
+			<use xlink:href="#SVGID_17_"  overflow="visible"/>
+		</clipPath>
+		<g clip-path="url(#SVGID_4_)" enable-background="new    ">
+			<path fill="#8C3123" d="M41.756,47.097v3.18c-7.473,1.229-13.611,3.717-18,6.027v-3.178
+				C28.145,50.815,34.283,48.329,41.756,47.097"/>
+		</g>
+	</g>
+	<g>
+		<path fill="#E05243" d="M75.961,24.679v28.463v-1.803c-4.588-2.094-10.809-4.061-18.729-4.748v-5.094H41.756v5.6
+			c-7.473,1.232-13.611,3.719-18,6.029V24.679H75.961z"/>
+	</g>
+	<g>
+		<path fill="#E05243" d="M57.232,51.96c7.854,0.705,14.107,2.689,18.729,4.805v21.547H23.756V58.3
+			c4.322-2.275,10.41-4.715,18-5.914v6.291h15.477V51.96z"/>
+	</g>
+	<g>
+		<rect x="23.756" y="78.312" fill="#8C3123" width="52.205" height="3.178"/>
+	</g>
+</g>
+<g id="nyt_x5F_exporter_x5F_info" display="none">
+</g>
+</svg>

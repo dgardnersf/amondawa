@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.4, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="100px"
+	 height="100px" viewBox="0 0 100 100" enable-background="new 0 0 100 100" xml:space="preserve">
+<g id="Layer_1">
+	<g>
+		<g>
+			<g enable-background="new    ">
+				<g>
+					<defs>
+						<path id="SVGID_45_" d="M70.383,72.44v2.502c0,1.637-1.338,2.979-3,2.979v-2.498C69.045,75.423,70.383,74.079,70.383,72.44z"
+							/>
+					</defs>
+					<use xlink:href="#SVGID_45_"  overflow="visible" fill="#484A4B"/>
+					<clipPath id="SVGID_2_">
+						<use xlink:href="#SVGID_45_"  overflow="visible"/>
+					</clipPath>
+					<g clip-path="url(#SVGID_2_)" enable-background="new    ">
+						<path fill="#484A4B" d="M70.383,72.44v2.502c0,0.146-0.01,0.285-0.031,0.426v-2.504C70.373,72.726,70.383,72.583,70.383,72.44
+							"/>
+						<path fill="#484A4B" d="M70.352,72.864v2.504c-0.021,0.164-0.059,0.326-0.109,0.479v-2.502
+							C70.293,73.188,70.33,73.03,70.352,72.864"/>
+						<path fill="#484A4B" d="M70.242,73.345v2.502c-0.059,0.184-0.135,0.359-0.227,0.523v-2.498
+							C70.107,73.702,70.184,73.528,70.242,73.345"/>
+						<path fill="#484A4B" d="M70.016,73.872v2.498c-0.51,0.924-1.496,1.551-2.633,1.551v-2.498
+							C68.52,75.423,69.506,74.792,70.016,73.872"/>
+					</g>
+				</g>
+				<g>
+					<polygon fill="#484A4B" points="68.668,74.907 67.383,77.921 32.619,77.921 31.793,74.782 					"/>
+				</g>
+				<g>
+					<defs>
+						<path id="SVGID_47_" d="M32.619,75.423v2.498c-1.664,0-3.002-1.342-3.002-2.979V72.44
+							C29.617,74.079,30.955,75.423,32.619,75.423z"/>
+					</defs>
+					<use xlink:href="#SVGID_47_"  overflow="visible" fill="#484A4B"/>
+					<clipPath id="SVGID_4_">
+						<use xlink:href="#SVGID_47_"  overflow="visible"/>
+					</clipPath>
+					<g clip-path="url(#SVGID_4_)" enable-background="new    ">
+						<path fill="#484A4B" d="M32.619,75.423v2.498c-1.664,0-3.002-1.342-3.002-2.979V72.44
+							C29.617,74.079,30.955,75.423,32.619,75.423"/>
+					</g>
+				</g>
+				<g>
+					<path fill="#6D6F71" d="M67.383,22.079c1.662,0,3,1.332,3,2.967V72.44c0,1.639-1.338,2.982-3,2.982H32.619
+						c-1.664,0-3.002-1.344-3.002-2.982V25.046c0-1.635,1.338-2.967,3.002-2.967H67.383z"/>
+				</g>
+			</g>
+		</g>
+		<g>
+			<path fill="#FFFFFF" d="M64.109,44.597H35.885v-3.312h28.225V44.597z M64.109,38.985H35.885v-3.314h28.225V38.985z M64.109,33.11
+				H35.885v-3.314h28.225V33.11z"/>
+		</g>
+	</g>
+</g>
+<g id="nyt_x5F_exporter_x5F_info" display="none">
+</g>
+</svg>

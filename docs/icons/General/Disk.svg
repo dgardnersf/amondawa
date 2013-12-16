@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.4, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="100px"
+	 height="100px" viewBox="0 0 100 100" enable-background="new 0 0 100 100" xml:space="preserve">
+<g id="Layer_1">
+	<g>
+		<g>
+			<g>
+				<path fill="#6D6F71" d="M50,21.483c15.19,0,27.505,12.221,27.505,27.285c0,15.068-12.314,27.283-27.505,27.283
+					S22.495,63.837,22.495,48.769C22.495,33.704,34.81,21.483,50,21.483z"/>
+			</g>
+			<g>
+				<defs>
+					<path id="SVGID_55_" d="M77.505,48.769v2.465C77.505,66.3,65.19,78.517,50,78.517S22.495,66.3,22.495,51.233v-2.465
+						c0,15.068,12.314,27.283,27.505,27.283S77.505,63.837,77.505,48.769z"/>
+				</defs>
+				<use xlink:href="#SVGID_55_"  overflow="visible" fill="#484A4B"/>
+				<clipPath id="SVGID_2_">
+					<use xlink:href="#SVGID_55_"  overflow="visible"/>
+				</clipPath>
+				<g clip-path="url(#SVGID_2_)" enable-background="new    ">
+					<path fill="#484A4B" d="M77.505,48.769v2.465c0,1.385-0.104,2.744-0.303,4.066v-2.461
+						C77.401,51.509,77.505,50.155,77.505,48.769"/>
+					<path fill="#484A4B" d="M77.202,52.839V55.3c-0.232,1.557-0.598,3.068-1.088,4.527v-2.473
+						C76.604,55.905,76.97,54.388,77.202,52.839"/>
+					<path fill="#484A4B" d="M76.114,57.354v2.473c-0.57,1.707-1.312,3.348-2.197,4.891v-2.461
+						C74.802,60.712,75.544,59.071,76.114,57.354"/>
+					<path fill="#484A4B" d="M73.917,62.257v2.461C69.184,72.958,60.247,78.517,50,78.517c-15.19,0-27.505-12.217-27.505-27.283
+						v-2.465c0,15.068,12.314,27.283,27.505,27.283C60.247,76.052,69.184,70.495,73.917,62.257"/>
+				</g>
+			</g>
+		</g>
+		<circle fill="none" stroke="#FFFFFF" stroke-miterlimit="10" cx="50" cy="48.751" r="8.499"/>
+		<circle fill="#FFFFFF" cx="50" cy="48.751" r="5.244"/>
+	</g>
+</g>
+<g id="nyt_x5F_exporter_x5F_info" display="none">
+</g>
+</svg>
