@@ -242,7 +242,7 @@ class GatherTask(object):
   def __init__(self, query_threads, query_callback):
     super(GatherTask, self).__init__()
     self.query_callback = query_callback
-    self.query_threads = query_threads
+    self.query_threads = sorted(query_threads)
 
   def start(self):
     self.future = thread_pool.submit(self.run)
@@ -302,3 +302,8 @@ class QueryTask(object):
   def get_result(self):
     return self.future.result()
 
+  def __cmp__(self, other):
+    ret = cmp(self.get_tag_string(), other.get_tag_string())
+    if not ret:
+      return cmp(self.get_tbase(), other.get_tbase())
+    return ret
