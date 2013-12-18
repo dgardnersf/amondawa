@@ -24,26 +24,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+from amondawa import query as aquery
+from copy import deepcopy
+from datetime import datetime
+from tests.data import all_metrics
 from tests.http_writer import *
-from tests.stats import Intervals
 from tests.query import QueryRunner
+from tests.stats import Intervals
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-
+import numpy as np
 import time, random, simplejson
 
 INTERVALS = Intervals()
 
 REGION        = 'us-west-2'
 
-#HOST          = 'amondawa.elasticbeanstalk.com'
-#PORT          = 80
-HOST          = 'localhost'
-PORT          = 5000
+#HOST          = 'localhost'
+#PORT          = 5000
+HOST          = 'amondawa.elasticbeanstalk.com'
+PORT          = 80
 
 RATE          = 100.     # overall rate (split across NTHREADS)
 NTHREADS      = 10       # how many threads to use
 DURATION      = 10       # duration in minutes
-BATCH_SIZE    = 2        # datapoints per request
+BATCH_SIZE    = 5        # datapoints per request
 
 WRITERS       = []       # writers
 QUERY_RUNNER  = None     # query thread/runner
@@ -51,6 +56,10 @@ LAST_QUERY    = None     # last query performed
 LAST_RESPONSE = None     # last response received
 
 SAVED_QUERIES = {}       # saved queries
+
+AGGREGATOR = None
+DOWNSAMPLER = None
+
 
 def settings():
   """Show current settings.
@@ -96,6 +105,14 @@ query_last   : repeat the previous query
 named_query  : repeat a saved query
 save_query   : save current query
 list_queries : list query names
+
+aggregate            : set aggregate transform ('avg', 'sum', 'min', 'max')
+downsample           : set downsample name  ('avg', 'sum', 'min', 'max') 
+                                      value (integer)
+                                      units ('minutes', 'seconds')
+mod_query_downsample : apply downsample transform to query
+mod_query_aggregate  : apply aggregate transform to query
+mod_query            : apply downsample and aggregate transforms to query
 """
 
 def host(host, supress=False):
@@ -140,14 +157,26 @@ def reset():
   LAST_QUERY = None
   LAST_RESPONSE = None
 
-def start():
-  global WRITERS, NTHREADS, RATE, INTERVALS
+def start(block=False):
+  global WRITERS, NTHREADS, RATE, INTERVALS, DURATION
   stop()
   WRITERS = [RandomHTTPWriter(HOST, PORT, rate=RATE/NTHREADS, 
      duration=DURATION, batch_size=BATCH_SIZE) for i in range(NTHREADS)]
+
+  _assign_colors(WRITERS)
+
   for writer in WRITERS:
     writer.start()
   if WRITERS: INTERVALS.start_interval()
+
+  if block:
+    stop_time = time.time() + DURATION*60
+    while True:
+      time.sleep(5)
+      status()
+      if time.time() > stop_time:
+        break
+    pause()
 
 def flush():
   global WRITERS
@@ -203,6 +232,15 @@ def save_query(name):
   global SAVED_QUERIES, LAST_QUERY
   SAVED_QUERIES[name] = LAST_QUERY
 
+def mod_query_downsample(query):
+  return _mod_query(query, 'downsample')
+
+def mod_query_aggregate(query):
+  return _mod_query(query, 'aggregate')
+
+def mod_query(query):
+  return mod_query_downsample(mod_query_aggregate(query))
+
 def query_last():
   global LAST_QUERY
   return query(LAST_QUERY)
@@ -214,6 +252,31 @@ def named_query(name):
 def list_queries():
   global SAVED_QUERIES
   return SAVED_QUERIES.keys()
+
+def downsample(name='avg', value=20, unit='seconds'):
+  global DOWNSAMPLER
+  assert unit in aquery.FREQ_TYPE
+  assert name in aquery.AGGREGATORS
+  DOWNSAMPLER = {
+  'sampling': {
+    'value': value,
+    'unit': unit
+    },
+  'name': name
+  }
+
+def nodownsample():
+  global DOWNSAMPLER
+  DOWNSAMPLER = None
+
+def aggregate(value='avg'):
+  global AGGREGATOR
+  assert value in aquery.AGGREGATORS.keys()
+  AGGREGATOR = value
+
+def noaggregate():
+  global AGGREGATOR
+  AGGREGATOR = None
 
 def query(query=None):
   global QUERY_RUNNER, HOST, PORT, LAST_QUERY, LAST_RESPONSE, WRITERS
@@ -228,10 +291,27 @@ def query(query=None):
 
   LAST_QUERY = query
   response = QUERY_RUNNER.perform_query(query)
+
   LAST_RESPONSE = response.status, response.reason, \
         simplejson.loads(response.read())
 
   return LAST_QUERY, LAST_RESPONSE
+
+def stream_query(stream=0, interval=0, offset=0, duration_secs=30):
+  if not WRITERS: return
+  start = 1000*(INTERVALS.intervals[interval][0] + offset)
+  end = min(start + 1000*duration_secs, 1000*INTERVALS.intervals[interval][1])
+  stream = WRITERS[stream]
+  metrics = []
+  query = {
+      'start_absolute': start,
+      'end_absolute': end,
+      'metrics': [{
+        'tags': stream.tags,
+        'name': stream.metric
+        }]
+      }
+  return query
 
 def random_query():
   if not WRITERS: return
@@ -261,15 +341,74 @@ def random_query():
 
 def plot():
   global LAST_RESPONSE
-  result = LAST_RESPONSE[2]['queries']
+  results = LAST_RESPONSE[2]['queries']
 
-  points = result[0]['results'][0]['values']
-  points.sort()  # TODO: find this bug; should already be sorted!!
+  for result in results:
+    for qr in  result['results']:
+      points = sorted(qr['values'])  # TODO: should be sorted! (find bug)
+      metric = qr['name']
+      tags = qr['tags']
 
-  times, values = [p[0] for p in points], [p[1] for p in points]
+      _plot(points, metric, tags)
 
-  plt.plot(times, values)
+def _assign_colors(writers):
+  # club by metric 
+  by_metric = {}
+  for writer in writers:
+    metric = writer.metric
+    if not metric in by_metric:
+      by_metric[metric] = []
+    by_metric[writer.metric].append(writer)
+
+  for metric, metric_writers in by_metric.items():
+    # don't use super-light colors (start at offset of 3)
+    grad = np.linspace(0, 1, len(metric_writers) + 3)  
+    cmap = all_metrics[metric]['color_map']
+    N = len(metric_writers)
+    for value, writer in zip(grad[3:], metric_writers):
+      writer.tags['color'] = _str_from_color(cmap, value, N)
+    
+def _mod_query(query, which):
+  global LAST_QUERY, AGGREGATOR, DOWNSAMPLER
+  if which == 'aggregate':
+    transform = AGGREGATOR
+  if which == 'downsample':
+    transform = DOWNSAMPLER
+  if not query and not LAST_QUERY: return
+  if not query:
+    query = LAST_QUERY
+  ret = deepcopy(query)
+  for metric in ret['metrics']:
+    if not transform:
+      if which in metric:
+        del metric[which]
+    else:
+      metric[which] = transform
+  return ret
+
+def _color_from_str(cstr):
+  cmap, value, N = cstr.split('_') 
+  cmap = plt.get_cmap(cmap)
+  return cmap(float(value))
+
+def _str_from_color(cmap, value, N):
+  return '_'.join(map(str, [cmap, value, N]))
+
+def _plot(points, metric, tags):
+  desc = all_metrics[metric]
+
+  times, values = [datetime.fromtimestamp(p[0]/1000.) for p in points], \
+    [p[1] for p in points]
+
+  fig, ax = plt.subplots(1)
+  ax.plot(times, values, color=_color_from_str(tags['color']), marker='x')
+  fig.autofmt_xdate()
+  plt.title(desc['title'])
+  plt.xlabel('time')
+  plt.ylabel('%s (%s)' % (desc['ylabel'], desc['units']))
+  plt.title(desc['title'])
   plt.show()
 
-
-commands()
+def _find_writer(metric, tags):
+  global WRITERS
+  return filter(lambda w: w.tags == tags and w.metric == metric, WRITERS)[0]

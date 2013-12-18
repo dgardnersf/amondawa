@@ -27,8 +27,8 @@ from tests.data import *
 
 AMONDAWA_CONTEXT = Context(Emin=-128, Emax=126, prec=38)
 
-class TestData(object):
-  """Generate random data patterns based on sin(t).
+class TestPattern(object):
+  """Generate random frequency data patterns based on sin(t).
   """
   def drange(start, stop, step):
     r = start
@@ -40,24 +40,17 @@ class TestData(object):
 
   def __init__(self, min_value, max_value):
     self.type = random.choice([lambda v: int(v), lambda v: str(round(float(v), 3))])
-    #self.period_change = random.randint(10, 100)
-    self.period_change = 1e9
     self.n = 0
-    self.n1 = random.randint(0, len(TestData.period))
-    self.f = TestData.period[self.n1 % len(TestData.period)]
+    self.f = random.choice(TestPattern.period)
     self.min_value = min_value
     self.max_value = max_value
 
   def value(self, t):
-    if not self.n % self.period_change:
-      self.n1 += 1
-      self.f = TestData.period[self.n1 % len(TestData.period)]
-      self.period_change = random.randint(10, 100)
-
     value = self.type((self.max_value - self.min_value) * \
-        (math.sin(self.f*t*math.pi/180.) + 1) /2 + self.min_value)
+        (math.sin(self.f*self.n*math.pi/180.) + 1) /2 + self.min_value)
     self.n += 1
     return AMONDAWA_CONTEXT.create_decimal(value)
+
 
 class MetricWriter(Thread):
   """Generate metrics, tags, datapoints.
@@ -65,7 +58,7 @@ class MetricWriter(Thread):
   def __init__(self, domain, metric, tags, min_value, max_value, sleeptime, 
       batch_size=20, duration=10):
     super(MetricWriter, self).__init__()
-    self.datagen = TestData(min_value, max_value)
+    self.datagen = TestPattern(min_value, max_value)
     self.metric = metric
     self.tags = tags
     self.min_value = min_value
@@ -91,6 +84,9 @@ class MetricWriter(Thread):
   def stop(self):
     self.stopped = True
 
+  def metric_desc(self):
+    return all_metrics[self.metric]
+
   def __str__(self):
     return str((self.metric, self.tags))
 
@@ -99,10 +95,12 @@ class RandomWriter(MetricWriter):
   """
   def __init__(self, rate=1, batch_size=20, duration=10):
     metric = random.choice(all_metrics.keys())
-    min_value, max_value = all_metrics[metric]
+    min_value, max_value = all_metrics[metric]['range']
     tags = dict(map(lambda kv: [kv[0], random.choice(kv[1])], 
       all_tags.items()))
     domain = random.choice(all_domains)
     super(RandomWriter, self).__init__(domain, metric, tags, min_value, 
         max_value, 1/Decimal(rate), batch_size=batch_size, duration=duration)
+
+
 

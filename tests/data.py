@@ -20,6 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+"""
+  Test data.
+"""
+
 import string
 
 def rot_zip_str(a, b):
@@ -29,21 +33,62 @@ def rot_zip_str(a, b):
 all_domains = rot_zip_str(['domain'], string.ascii_uppercase)
 
 all_metrics = {
-# 'name':      [min, max]
-  'rpo':       [10, 750],
-  'cpu_util':  [0, 100],
-  'disk_free': [0, 10*1024*1024],
-  'birds_free': [0, 10*1024*1024],
-  'free_birds': [0, 10*1024*1024],
-  'bytes_in':  [0, 1024*1024],
-  'bytes_out': [0, 1024*1024]
+    'rpo':       {
+      'range': [10, 750],
+      'units': 'Minutes',
+      'ylabel': 'RPO',
+      'color_map': 'summer',
+      'title': 'Recovery Point Objective'
+      },
+    'cpu_util':   {
+      'range': [0, 100],
+      'units': 'pct',
+      'ylabel': 'util',
+      'color_map': 'Greens',
+      'title': 'CPU Utilization'
+      },
+    'disk_free':  {
+      'range': [0, 10*1024*1024],
+      'units':  'bytes',
+      'ylabel': 'free',
+      'color_map': 'spring',
+      'title': 'Disk Free'
+      },
+    'dolphins':  {
+      'range': [0, 10*1024*1024],
+      'units': 'count',
+      'ylabel': 'dolphins',
+      'color_map': 'Blues',
+      'title': 'Dolphins'
+      },
+    'free_birds':  {
+      'range': [0, 10*1024*1024],
+      'units': 'count',
+      'ylabel': 'birds',
+      'color_map': 'Reds',
+      'title': 'Free Birds'
+      },
+    'bytes_in':   {
+      'range': [0, 1024*1024],
+      'units': 'bytes',
+      'ylabel': 'in',
+      'color_map': 'winter',
+      'title': 'Bytes In'
+      },
+    'bytes_out':  {
+      'range': [0, 1024*1024],
+      'units': 'bytes',
+      'color_map': 'Oranges',
+      'ylabel': 'out',
+      'title': 'Bytes Out'
+      }
 }
 
 all_tags = {
-  'match':     ['bbbbb','rrrr', '1889', 'tagtagtag'],
+  'match':     [8*'a',8*'b', 8*'c', 8*'d'],
   'type':      ['storage', 'network', 'compute', 'time', 'space'],
   'host':      ['10.0.0.1', '10.2.2.1', '10.0.0.2', '172.4.5.1'],
-  'name':      ['aaaa40', 'dan', 'bbbb56', 'consistent'],
-  'protected': ['protected', 'infrastructure', 'blah'],
+  'name':      ['chitta', 'jeff', 'venka', 'werner', 'jack'],
+  'protected': ['protected', 'infrastructure', 'shared'],
   'group':     ['group1', 'group2', 'group3', 'group4']
 }

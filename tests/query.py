@@ -24,15 +24,31 @@ import simplejson, httplib
 from threading import Thread
 
 class QueryRunner(Thread):
+  URI = '/api/v1/datapoints/query'
+  HEADERS = {'Content-Type': 'application/json'}
+
   def __init__(self, host, port):
     super(QueryRunner, self).__init__()
-    self.connection = httplib.HTTPConnection(host, port)
+    self.host = host
+    self.port = port
+    self._connect()
     
   def perform_query(self, query):
-    json = simplejson.dumps(query)
-    self.connection.request("POST", '/api/v1/datapoints/query', json, 
-        {'Content-Type': 'application/json'})
-    return self.connection.getresponse()
+    return self._perform_query(simplejson.dumps(query))
+
+  def _perform_query(self, query):
+    try:
+      self.connection.request("POST", QueryRunner.URI, query, 
+          QueryRunner.HEADERS)
+      return self.connection.getresponse()
+    except:
+      self._connect()
+      self.connection.request("POST", QueryRunner.URI, query, 
+          QueryRunner.HEADERS)
+      return self.connection.getresponse()
  
+  def _connect(self):
+    self.connection = httplib.HTTPConnection(self.host, self.port)
+
   def run(self):
     pass
