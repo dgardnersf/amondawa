@@ -45,8 +45,8 @@ class Schema(object):
   metric_names_tp      = { 'read': 1, 'write': 1 }
   tag_names_tp         = { 'read': 1, 'write': 1 }
   tag_values_tp        = { 'read': 1, 'write': 1 }
-  data_points_tp       = { 'read': 80, 'write': 40 }
-  data_points_index_tp = { 'read': 80, 'write': 40 }
+  data_points_tp       = { 'read': 80, 'write': 160 }
+  data_points_index_tp = { 'read': 80, 'write': 160 }
 
   datapoints_lru = LRUCache(400)
   index_key_lru = LRUCache(400)

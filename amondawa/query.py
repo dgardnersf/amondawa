@@ -83,13 +83,15 @@ def resample(values, index, rule, how):
 def aggregate(series_list, how):
   """Aggregate the pandas time series in the list.
   """
+  mean = False
   if how == np.mean:
+    mean = True
     how = np.sum
   final = series_list[0]
   for series in series_list:
     l, r = map(lambda s: s.interpolate().dropna(), final.align(series))
     final = l.combine(r, lambda v1, v2: how([v1, v2])).dropna()
-  if how == np.mean:
+  if mean:
     final /= len(series_list)
   return final
 
