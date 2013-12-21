@@ -36,12 +36,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time, random, simplejson
 
+
+random.seed(12321)   # random but consistent
+
 INTERVALS = Intervals()
 
 REGION        = 'us-west-2'
 
-#HOST          = 'localhost'
-#PORT          = 5000
 HOST          = 'amondawa.elasticbeanstalk.com'
 PORT          = 80
 
@@ -64,16 +65,18 @@ DOWNSAMPLER = None
 def settings():
   """Show current settings.
   """
-  global HOST, PORT, DURATION, RATE, NTHREADS, REGION
+  global HOST, PORT, DURATION, RATE, NTHREADS, REGION, DOWNSAMPLER, AGGREGATOR
   print """
-region:     %s
-host:       %s
-port:       %s
-duration:   %s
-rate:       %s
-threads:    %s
-batch_size: %s
-""" % (REGION, HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE)
+region:      %s
+host:        %s
+port:        %s
+duration:    %s
+rate:        %s
+threads:     %s
+batch_size:  %s
+downsampler: %s
+aggregator:  %s
+""" % (REGION, HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE, DOWNSAMPLER, AGGREGATOR)
 
 def commands():
   print """
@@ -364,9 +367,8 @@ def _assign_colors(writers):
     # don't use super-light colors (start at offset of 3)
     grad = np.linspace(0, 1, len(metric_writers) + 3)  
     cmap = all_metrics[metric]['color_map']
-    N = len(metric_writers)
     for value, writer in zip(grad[3:], metric_writers):
-      writer.tags['color'] = _str_from_color(cmap, value, N)
+      writer.tags['color'] = _str_from_color(cmap, value)
     
 def _mod_query(query, which):
   global LAST_QUERY, AGGREGATOR, DOWNSAMPLER
@@ -386,13 +388,17 @@ def _mod_query(query, which):
       metric[which] = transform
   return ret
 
-def _color_from_str(cstr):
-  cmap, value, N = cstr.split('_') 
+def _color_from_tagval(tagval):
+  if type(tagval) is list: 
+    value = np.mean([float(s.split('_')[1]) for s in tagval])
+    cmap, _ = tagval[0].split('_') 
+  else:
+    cmap, value = tagval.split('_') 
   cmap = plt.get_cmap(cmap)
   return cmap(float(value))
 
-def _str_from_color(cmap, value, N):
-  return '_'.join(map(str, [cmap, value, N]))
+def _str_from_color(cmap, value):
+  return '_'.join(map(str, [cmap, value]))
 
 def _plot(points, metric, tags):
   desc = all_metrics[metric]
@@ -401,12 +407,12 @@ def _plot(points, metric, tags):
     [p[1] for p in points]
 
   fig, ax = plt.subplots(1)
-  ax.plot(times, values, color=_color_from_str(tags['color']), marker='x')
+  ax.plot(times, values, color=_color_from_tagval(tags['color']), marker='x')
   fig.autofmt_xdate()
+  print tags
   plt.title(desc['title'])
   plt.xlabel('time')
   plt.ylabel('%s (%s)' % (desc['ylabel'], desc['units']))
-  plt.title(desc['title'])
   plt.show()
 
 def _find_writer(metric, tags):
