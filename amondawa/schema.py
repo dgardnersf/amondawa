@@ -34,13 +34,13 @@ from boto.dynamodb2.types import *
 
 from concurrent.futures import ThreadPoolExecutor
 from repoze.lru import LRUCache
-from threading import Lock, local, Thread
+from threading import Lock, Thread
 
 import sched, sys, time, atexit
 
 class Schema(object):
   table_names = 'data_points', 'data_points_index', 'metric_names', \
-                'tag_names', 'tag_values'
+                'tag_names', 'tag_values', 'amondawa_credentials'
 
   metric_names_tp      = { 'read': 1, 'write': 1 }
   tag_names_tp         = { 'read': 1, 'write': 1 }
@@ -78,6 +78,7 @@ class Schema(object):
     Table.create('tag_values',
         schema = [ HashKey('domain'), RangeKey('value') ],
         throughput = Schema.tag_values_tp, connection=connection)
+
     Table.create('data_points',
         schema = [ HashKey('domain_metric_tbase_tags'),
           RangeKey('toffset', data_type=NUMBER) ],
@@ -90,6 +91,7 @@ class Schema(object):
     """Initilize data structures.
     """
     self.connection = connection
+    # TODO these should be LRU cache - this will become too large
     self.index_key_cache = set()
     self.metric_name_cache = set()
     self.tag_name_cache = set()

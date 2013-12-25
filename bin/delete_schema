@@ -25,10 +25,27 @@
 # IN THE SOFTWARE.
 
 from amondawa.schema import Schema
-import amondawa
+import amondawa, sys
 
 connection = amondawa.connect('us-west-2')
+print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+print "This operation will delete the Amondawa schema all the DATA!!"
+print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+print "Please confirm that this is your intention by typing the following phrase twice:"
+print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+confirm = "I am sure that I want to delete the Amondawa schema and all of the DATA!"
+print confirm
+if sys.stdin.readline() != confirm + '\n':
+  print "Aborted delete operation."
+  sys.exit(1)
+print "Pass phrase accepted. Please repeat:"
+if sys.stdin.readline() != confirm + '\n':
+  print "Aborted delete operation."
+  sys.exit(1)
+
 try:
   Schema.delete(connection)
 finally:
   connection.close()
+print "Schema and data deleted."

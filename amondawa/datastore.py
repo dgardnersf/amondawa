@@ -31,7 +31,7 @@ from amondawa.query import SimpleQueryCallback, ResamplingQueryCallback
 from amondawa.query import QueryTask, GatherTask
 from amondawa.schema import Schema
 from decimal import Decimal
-from threading import Lock, local
+from threading import Lock
 
 import amondawa, time, threading
 

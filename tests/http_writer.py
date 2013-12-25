@@ -23,13 +23,20 @@
 from tests.writers import RandomWriter
 import simplejson, sys, time, httplib, pprint
 
+from amondawa.auth import AmzAuthBuilder
+from boto.pyami.config import Config
 
 class RandomHTTPWriter(RandomWriter):
   """Write random metrics, tags, datapoints to amondawa datastore via HTTP.
   """
-  def __init__(self, host, port, path='/api/v1/datapoints', rate=20, batch_size=20, duration=10):
+  def __init__(self, host, port, path='/api/v1/nodomain/datapoints', rate=20, batch_size=20, duration=10):
     super(RandomHTTPWriter, self).__init__(rate=rate, batch_size=batch_size, duration=duration) 
+
+    self.auth_builder = AmzAuthBuilder(Config('./client.cfg'))  # TODO: move up cfg
+
     self.connection = httplib.HTTPConnection(host, port)
+    self.port = port
+    self.host = host
     self.path = path
     self.dps = [{
       'name': self.metric,
@@ -91,8 +98,9 @@ class RandomHTTPWriter(RandomWriter):
 
   def send(self):
     try:
-      self.connection.request("POST", self.path, simplejson.dumps(self.dps),
-        {'Content-Type': 'application/json'})
+      headers = self.auth_builder.add_auth(self.host, self.port, 
+          'POST', self.path, '', {'Content-Type': 'application/json'})
+      self.connection.request('POST', self.path, simplejson.dumps(self.dps), headers)
       response = self.connection.getresponse()
       data = response.read()
       self._count_response(response)

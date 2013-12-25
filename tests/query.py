@@ -24,7 +24,7 @@ import simplejson, httplib
 from threading import Thread
 
 class QueryRunner(Thread):
-  URI = '/api/v1/datapoints/query'
+  URI = '/api/v1/nodomain/datapoints/query'
   HEADERS = {'Content-Type': 'application/json'}
 
   def __init__(self, host, port):
