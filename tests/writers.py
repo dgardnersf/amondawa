@@ -51,6 +51,38 @@ class TestPattern(object):
     self.n += 1
     return AMONDAWA_CONTEXT.create_decimal(value)
 
+  def _value(self, t):
+    return Decimal ('534352.989')
+
+  #  test non-numeric data TODO: move this to a separate location
+  def _value(self, t):
+    return ['ab', 'cd', 'ef']
+
+  def _value(self, t):
+    return {'ab': 'cd', 'ef' :1 }
+
+  def _value(self, t):
+    return {'queries': [{'results': [{'name': 'bytes_out',
+      'tags': {'color': 'Oranges_1.0',
+        'group': 'group4',
+        'host': '172.4.5.1',
+        'match': 'aaaaaaaa',
+        'name': 'werner',
+        'protected': 'protected',
+        'type': 'storage'},
+      'values': [[1388527883458, {'ab': 'cd', 'ef': 1}],
+        [1388527885119, {'ab': 'cd', 'ef': 1}],
+        [1388527886120, {'ab': 'cd', 'ef': 1}],
+        [1388527887120, {'ab': 'cd', 'ef': 1}],
+        [1388527888121, {'ab': 'cd', 'ef': 1}],
+        [1388527889122, {'ab': 'cd', 'ef': 1}],
+        [1388527890129, {'ab': 'cd', 'ef': 1}],
+        [1388527891129, {'ab': 'cd', 'ef': 1}],
+        [1388527892130, {'ab': 'cd', 'ef': 1}],
+        [1388527893131, {'ab': 'cd', 'ef': 1}],
+        [1388527894131, {'ab': 'cd', 'ef': 1}]]}],
+      'sample_size': 11}]}
+
 
 class MetricWriter(Thread):
   """Generate metrics, tags, datapoints.

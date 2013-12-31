@@ -27,11 +27,11 @@ Classes for querying and storing datapoints.
 from amondawa import util, config
 from amondawa.mtime import timeit
 from amondawa.query import AggegatingQueryCallback, ComplexQueryCallback
-from amondawa.query import SimpleQueryCallback, ResamplingQueryCallback
 from amondawa.query import QueryTask, GatherTask, FREQ_MILLIS
+from amondawa.query import SimpleQueryCallback, ResamplingQueryCallback
 from amondawa.schema import Schema
-from decimal import Decimal
 
+from flask import json
 import amondawa, time, threading, os
 
 
@@ -136,15 +136,16 @@ class DataPoint(object):
       return cmp(self.value, o.value)
     return ret
 
-  def __hash__(self):
-    ret = 17
-    ret = 31*ret + hash(self.value)
-    ret = 31*ret + hash(self.timestamp)
-    return ret
+#   def __hash__(self):
+#     ret = 17
+#     ret = 31*ret + hash(self.value)
+#     ret = 31*ret + hash(self.timestamp)
+#     return ret
+# 
+#   def __eq__(self, o):
+#     return self is o or (type(o) == DataPoint and \
+#       self.value == o.value and self.timestamp == o.timestamp)
 
-  def __eq__(self, o):
-    return self is o or (type(o) == DataPoint and \
-      self.value == o.value and self.timestamp == o.timestamp)
 
 class DataPointSet(list):
   """A collection of datapoints.
@@ -157,10 +158,12 @@ class DataPointSet(list):
     for o in json:
       dps = cls(o['name'], o['tags'])
       if 'timestamp' in o:
-        dps.append(DataPoint(o['timestamp'], Decimal(str(o['value']))))
+        #dps.append(DataPoint(o['timestamp'], Decimal(str(o['value']))))
+        dps.append(DataPoint(o['timestamp'], util.to_dynamo_compat_type(o['value'])))
       elif 'datapoints' in o:
         for timestamp, value in o['datapoints']:
-          dps.append(DataPoint(timestamp, Decimal(str(value))))
+          #dps.append(DataPoint(timestamp, Decimal(str(value))))
+          dps.append(DataPoint(timestamp, util.to_dynamo_compat_type(value)))
       ret.append(dps)
     return ret
 

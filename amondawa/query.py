@@ -27,6 +27,7 @@ Classes for querying datapoints.
 from amondawa import util, config
 from amondawa.mtime import timeit
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 from pandas.tseries import frequencies as freq
 from threading import Thread
 import numpy as np
@@ -237,7 +238,6 @@ class ComplexQueryCallback(object):
     self.results = self.aggregator.finish()
     return self.results
 
-
 class GatherTask(object):
   """IO thread to read multiple query results and serialize together.
   """
@@ -263,7 +263,8 @@ class GatherTask(object):
       for timestamp, value in query.get_result():
         # TODO: figure out how to preserve the datatype and precision;
         #         casting to float (from Decimal) is a hack
-        self.query_callback.add_data_point(int(timestamp), float(value))
+        #self.query_callback.add_data_point(int(timestamp), float(value))
+        self.query_callback.add_data_point(int(timestamp), util.from_dynamo_compat_type(value))
 
     if len(self.query_threads):
       self.query_callback.end_datapoint_set()

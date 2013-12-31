@@ -123,7 +123,7 @@ class Block(object):
           throughput = {'read': config.TP_READ_INDEX_KEY / BLOCKS, 
             'write': config.TP_WRITE_INDEX_KEY} , connection=self.connection)
   
-    self.item.save()
+    self.item.save(overwrite=True)
     return self.state
 
   def replace(self, timestamp):

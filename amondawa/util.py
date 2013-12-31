@@ -24,13 +24,42 @@
 Utility classes - string manipulation, key <-> string conversion etc.
 """
 
-import hashlib, time
-from repoze.lru import lru_cache
 from amondawa import config
+from boto.dynamodb.types import get_dynamodb_type, is_str, is_num
+from decimal import Decimal
+from flask import json
+from repoze.lru import lru_cache
+import hashlib, time
+
+MAGIC = '0xCAFEBABE'
 
 config = config.get()
 
 COLUMN_HEIGHT = config.STORE_COLUMN_HEIGHT
+
+def to_dynamo_compat_type(value):
+  try:
+    if is_num(value):
+      value = Decimal(str(value))
+    elif type(value) in (list, tuple):
+      value = set(value)
+    elif type(value) is dict:
+      value = MAGIC + json.dumps(value)
+    get_dynamodb_type(value)
+  except TypeError:
+    value = MAGIC + json.dumps(value)
+  return value
+
+def from_dynamo_compat_type(value):
+  if isinstance(value, (set, frozenset)):
+    value = list(value)
+  # TODO: figure out how to preserve the datatype and precision;
+  #         casting to float (from Decimal) is a hack
+  elif is_num(value):
+    value = float(value)
+  elif is_str(value) and value.startswith(MAGIC):
+    value = json.loads(value[len(MAGIC):])
+  return value
 
 def now():
   """Current time in epoch millis.
