@@ -23,6 +23,9 @@
 import simplejson, httplib
 from threading import Thread
 
+from amondawa.auth import AmzAuthBuilder
+from boto.pyami.config import Config
+
 class QueryRunner(Thread):
   URI = '/api/v1/nodomain/datapoints/query'
   HEADERS = {'Content-Type': 'application/json'}
@@ -32,19 +35,20 @@ class QueryRunner(Thread):
     self.host = host
     self.port = port
     self._connect()
+    self.auth_builder = AmzAuthBuilder(Config('./client.cfg'))  # TODO: move up cfg
     
   def perform_query(self, query):
     return self._perform_query(simplejson.dumps(query))
 
   def _perform_query(self, query):
     try:
-      self.connection.request("POST", QueryRunner.URI, query, 
-          QueryRunner.HEADERS)
+      headers = self.auth_builder.add_auth(self.host, self.port, 
+          'POST', QueryRunner.URI, '', QueryRunner.HEADERS)
+      self.connection.request("POST", QueryRunner.URI, query, headers)
       return self.connection.getresponse()
     except:
       self._connect()
-      self.connection.request("POST", QueryRunner.URI, query, 
-          QueryRunner.HEADERS)
+      self.connection.request("POST", QueryRunner.URI, query, headers)
       return self.connection.getresponse()
  
   def _connect(self):

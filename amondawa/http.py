@@ -24,14 +24,19 @@
 HTTP related classes.
 """
 
+from amondawa import config
+from amondawa.auth import AmzAuthBuilder, authorized
 from amondawa.datastore import QueryMetric, DataPointSet, Datastore
 from amondawa.mtime import timeit
+
+from boto.pyami.config import Config
 from flask import Flask, request, json
 
-from amondawa.auth import AmzAuthBuilder, authorized
-from boto.pyami.config import Config
+import amondawa
 
 app = Flask('amondawa')
+
+datastore = Datastore(amondawa.connect(config.REGION))
 
 # TODO: make thread local
 auth_builder = AmzAuthBuilder(Config('./client.cfg'))  # TODO: move up cfg
@@ -42,9 +47,8 @@ def add_datapoints(domain):
   """
   if not authorized(auth_builder, request): return ('Forbidden', 403, [])
 
-  datastore = Datastore.get(domain)
   for dps in DataPointSet.from_json_object(request.get_json()):
-    datastore.put_data_points(dps)
+    datastore.put_data_points(dps, domain)
   return ('', 204, [])
 
 @app.route('/api/v1/<domain>/datapoints/query', methods=['POST'])
@@ -55,9 +59,8 @@ def query_database(domain):
   """
   if not authorized(auth_builder, request): return ('Forbidden', 403, [])
 
-  datastore = Datastore.get(domain)
   # spawn all threads
-  gather_threads = [datastore.query_database(query, QueryMetric.create_callback(query)) \
+  gather_threads = [datastore.query_database(query, QueryMetric.create_callback(query), domain) \
         for query in QueryMetric.from_json_object(request.get_json()) ]
 
   return (json.dumps( { 'queries': [{
@@ -72,10 +75,9 @@ def query_metric_tags(domain):
   """
   if not authorized(auth_builder, request): return ('Forbidden', 403, [])
 
-  datastore = Datastore.get(domain)
   return (json.dumps( { 'results': [{
     'name': query.name,
-    'tags': datastore.query_metric_tags(query)
+    'tags': datastore.query_metric_tags(query, domain)
     } for query in  QueryMetric.from_json_object(request.get_json())] } ), 200, [])
 
 @app.route('/api/v1/<domain>/metricnames')
@@ -84,9 +86,8 @@ def get_metric_names(domain):
   """
   if not authorized(auth_builder, request): return ('Forbidden', 403, [])
 
-  datastore = Datastore.get(domain)
   return (json.dumps( { 'results': 
-    [name for name in datastore.get_metric_names()] }), 200, [])
+    [name for name in datastore.get_metric_names(domain)] }), 200, [])
 
 @app.route('/api/v1/<domain>/tagnames')
 def get_tag_names(domain):
@@ -94,9 +95,8 @@ def get_tag_names(domain):
   """
   if not authorized(auth_builder, request): return ('Forbidden', 403, [])
 
-  datastore = Datastore.get(domain)
   return (json.dumps( { 'results': 
-    [name for name in datastore.get_tag_names()] }), 200, [])
+    [name for name in datastore.get_tag_names(domain)] }), 200, [])
 
 @app.route('/api/v1/<domain>/tagvalues')
 def get_tag_values(domain):
@@ -104,9 +104,8 @@ def get_tag_values(domain):
   """
   if not authorized(auth_builder, request): return ('Forbidden', 403, [])
 
-  datastore = Datastore.get(domain)
   return (json.dumps( { 'results': 
-    [name for name in datastore.get_tag_values()] }), 200, [])
+    [name for name in datastore.get_tag_values(domain)] }), 200, [])
 
 #TODO
 @app.route('/api/v1/<domain>/datapoints/delete', methods=['POST'])

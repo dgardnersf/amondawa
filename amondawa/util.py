@@ -26,10 +26,16 @@ Utility classes - string manipulation, key <-> string conversion etc.
 
 import hashlib, time
 from repoze.lru import lru_cache
+from amondawa import config
 
-#COLUMN_HEIGHT = 3*7*24*60*60*1000  # 3 weeks (in millis)
-# TODO: make configurable COLUMN_HEIGHT
-COLUMN_HEIGHT = 1*60*1000   # 1 minutes
+config = config.get()
+
+COLUMN_HEIGHT = config.STORE_COLUMN_HEIGHT
+
+def now():
+  """Current time in epoch millis.
+  """
+  return int(round(time.time()*1000))
 
 def base_time(timestamp):
   """Given absolute time in epoch milliseconds, calculate base time for

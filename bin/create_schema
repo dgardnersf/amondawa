@@ -25,9 +25,10 @@
 # IN THE SOFTWARE.
 
 from amondawa.schema import Schema
-import amondawa
+from amondawa import config
+import amondawa, os, sys
 
-connection = amondawa.connect('us-west-2')
+connection = amondawa.connect(config.REGION)
 try:
   Schema.create(connection)
 finally:

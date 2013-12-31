@@ -25,9 +25,11 @@
 # IN THE SOFTWARE.
 
 from amondawa.schema import Schema
-import amondawa, sys
+from amondawa import config
+import amondawa, sys, os
 
-connection = amondawa.connect('us-west-2')
+connection = amondawa.connect(config.REGION)
+
 print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 print "This operation will delete the Amondawa schema all the DATA!!"
 print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"

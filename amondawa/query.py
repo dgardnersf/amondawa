@@ -24,7 +24,7 @@
 Classes for querying datapoints.
 """
 
-from amondawa import util
+from amondawa import util, config
 from amondawa.mtime import timeit
 from concurrent.futures import ThreadPoolExecutor
 from pandas.tseries import frequencies as freq
@@ -32,8 +32,10 @@ from threading import Thread
 import numpy as np
 import pandas as pd
 
+config = config.get()
+
 # TODO: shutdown gracefully
-thread_pool = ThreadPoolExecutor(max_workers=20)
+thread_pool = ThreadPoolExecutor(max_workers=config.MT_WRITERS)
 
 # time intervals
 FREQ_MILLIS = {
@@ -260,7 +262,7 @@ class GatherTask(object):
         tag_string = query.get_tag_string()
       for timestamp, value in query.get_result():
         # TODO: figure out how to preserve the datatype and precision;
-        #         simply casting to float (from Decimal) is a hack
+        #         casting to float (from Decimal) is a hack
         self.query_callback.add_data_point(int(timestamp), float(value))
 
     if len(self.query_threads):

@@ -24,74 +24,57 @@
 Classes for querying and storing datapoints.
 """
 
-from amondawa import util
+from amondawa import util, config
 from amondawa.mtime import timeit
 from amondawa.query import AggegatingQueryCallback, ComplexQueryCallback
 from amondawa.query import SimpleQueryCallback, ResamplingQueryCallback
-from amondawa.query import QueryTask, GatherTask
+from amondawa.query import QueryTask, GatherTask, FREQ_MILLIS
 from amondawa.schema import Schema
 from decimal import Decimal
-from threading import Lock
 
-import amondawa, time, threading
+import amondawa, time, threading, os
+
 
 class Datastore(object):
   """Object based access to the time series database.
   """
 
-  datastore_lock = Lock()  # lock for datastores dict
-  datastores = {}          # a datastore per domain
-
-  @staticmethod
-  def get(domain, region='us-west-2'):   # TODO configurable region
-    """Get per/domain datastore object.
-    """
-    #print threading.current_thread()
-    datastore = None
-    with Datastore.datastore_lock:
-      datastore = Datastore.datastores.get(domain)
-      if not datastore:
-        datastore = Datastore(amondawa.connect(region))
-        Datastore.datastores[domain] = datastore
-    return datastore
-
-  def __init__(self, connection, domain='nodomain'):
+  def __init__(self, connection):
     """ctor
     """
     self.connection = connection
     self.dynamodb = Schema(connection)
-    self.domain = domain
 
-  def put_data_points(self, dps):
+  def put_data_points(self, dps, domain):
     """Store elements of DataPointSet.
     """
     for dp in dps:
       self.dynamodb.store_datapoint(dp.timestamp, dps.name, dps.tags, dp.value,
-          self.domain)
+          domain)
 
-  def get_metric_names(self):
+  def get_metric_names(self, domain):
     """Get the names of the metrics in the database.
     """
-    return self.dynamodb.get_metric_names(self.domain)
+    return self.dynamodb.get_metric_names(domain)
 
-  def get_tag_names(self):
+  def get_tag_names(self, domain):
     """Get the names of the tags in the database.
     """
-    return self.dynamodb.get_tag_names(self.domain)
+    return self.dynamodb.get_tag_names(domain)
 
-  def get_tag_values(self):
+  def get_tag_values(self, domain):
     """Get the values of the tags in the database.
     """
-    return self.dynamodb.get_tag_values(self.domain)
+    return self.dynamodb.get_tag_values(domain)
 
   @timeit
-  def query_database(self, query, query_callback):
+  def query_database(self, query, query_callback, domain):
     """Query datapoints by time interval and tags.
     """
     # for each matching index key, create a datapoints query thread
     query_threads = []
     for index_key in self._query_index_keys(query.name, query.start_time, 
-        query.end_time, query.tags, self.domain):
+        query.end_time, query.tags, domain):
       query_threads.append(QueryTask(self.dynamodb, index_key,
         query.start_time, query.end_time))
 
@@ -104,12 +87,12 @@ class Datastore(object):
 
     return gather_thread
 
-  def query_metric_tags(self, query):
+  def query_metric_tags(self, query, domain):
     """Query datapoint tags by time interval and tags.
     """
     # get index keys (domain_metric_tbase_tags)
     index_keys = self._query_index_keys(query.name, 
-        query.start_time, query.end_time, query.tags, self.domain)
+        query.start_time, query.end_time, query.tags, domain)
     # convert tag part to kv pair dictionaries
     return util.to_multi_map([key.get_tags() for key in index_keys])
 
@@ -166,13 +149,13 @@ class DataPoint(object):
 class DataPointSet(list):
   """A collection of datapoints.
   """
-  @staticmethod
-  def from_json_object(json):
+  @classmethod
+  def from_json_object(cls, json):
     """Factory method: datapoints from json.
     """
     ret = []
     for o in json:
-      dps = DataPointSet(o['name'], o['tags'])
+      dps = cls(o['name'], o['tags'])
       if 'timestamp' in o:
         dps.append(DataPoint(o['timestamp'], Decimal(str(o['value']))))
       elif 'datapoints' in o:
@@ -202,12 +185,12 @@ class DataPointSet(list):
 class QueryMetric(object):
   """DataPoint query class.
   """
-  @staticmethod
-  def from_json_object(json):
+  @classmethod
+  def from_json_object(cls, json):
     """Factory method: query from json.
     """
-    start, end = QueryMetric._time_interval_from_json(json)
-    return [QueryMetric(start, end, metric['name'], metric.get('aggregate'), 
+    start, end = cls._time_interval_from_json(json)
+    return [cls(start, end, metric['name'], metric.get('aggregate'), 
       metric.get('downsample'),  metric['tags']) for metric in json['metrics']]
 
   @staticmethod
@@ -246,12 +229,12 @@ class QueryMetric(object):
                 FREQ_MILLIS[relative['unit']]
     return t
 
-  @staticmethod
-  def _time_interval_from_json(json):
+  @classmethod
+  def _time_interval_from_json(cls, json):
     """Calculate absolute time from absolute timestamp or relative time struct.
     """
     now = int(round(time.time() * 1000))
-    return (QueryMetric._calc_time(now, json, stend) \
+    return (cls._calc_time(now, json, stend) \
       for stend in ('start', 'end'))
 
   def __init__(self, start_time, end_time, name, aggregator=None,
