@@ -70,22 +70,37 @@ class Block(object):
     self.connection = connection
     self.item = self.master.query(n__eq=n, consistent=True).next()
     self.dp_writer = self.data_points_table = self.index_table = None
-    self.bind()
-
-  def refresh(self):
-    """Re-fetch state from master table.
-    """
-    self.item = self.master.query(n__eq=self.n, tbase__eq=self.tbase, consistent=True).next()
-    return self.bind()
+    try:
+      self.bind()
+    except: 
+      pass # TODO log
 
   def bind(self):
     """Bind to existing tables.
     """
-    if self.data_points_name:
-      self.data_points_table = Table(self.data_points_name, connection=self.connection)
-      self.dp_writer = TimedBatchTable(self.data_points_table.batch_write())
-    if self.index_name:
-      self.index_table = Table(self.index_name, connection=self.connection)
+    if self.data_points_name and self.index_name:
+      data_points_table = Table(self.data_points_name, connection=self.connection)
+      try:
+        s1 = data_points_table.describe()['Table']['TableStatus']
+      except:
+        raise
+      else:
+        self.data_points_table = data_points_table
+        self.dp_writer = TimedBatchTable(self.data_points_table.batch_write())
+
+      index_table = Table(self.index_name, connection=self.connection)
+      try:
+        s2 = index_table.describe()['Table']['TableStatus']
+      except:
+        raise
+      else:
+        self.index_table = index_table
+
+      if s1 == s2:
+        self.item['state'] = s1
+      else:
+        self.item['state'] = 'UNDEFINED'
+
     return self.state
 
   def create_tables(self):
@@ -97,68 +112,63 @@ class Block(object):
     self.item['index_name'] = 'amdw_dp_index_%s' % self.tbase
 
     try:
-      data_points_table = Table(self.data_points_name, connection=self.connection)
-      s1 = data_points_table.describe()['Table']['TableStatus']
-      self.data_points_table = data_points_table
-      self.dp_writer = TimedBatchTable(self.data_points_table.batch_write())
-      index_table = Table(self.index_name, connection=self.connection)
-      self.index_table = index_table
-      s2 = index_table.describe()['Table']['TableStatus']
-      if s1 == s2:
-        self.item['state'] = s1
-      else:
-        self.item['state'] = 'UNDEFINED'
+      self.bind()
     except:
-      self.item['state'] = 'CREATING'
       if not self.data_points_table:
-        self.data_points_table = Table.create(self.data_points_name,
+        Table.create(self.data_points_name,
           schema = [ HashKey('domain_metric_tbase_tags'),
             RangeKey('toffset', data_type=NUMBER) ],
           throughput = {'read': config.TP_READ_DATAPOINTS / BLOCKS, 
             'write': config.TP_WRITE_DATAPOINTS}, connection=self.connection)
-        self.dp_writer = TimedBatchTable(self.data_points_table.batch_write())
       if not self.index_table:
-        self.index_table = Table.create(self.index_name,
+        Table.create(self.index_name,
           schema = [ HashKey('domain_metric'), RangeKey('tbase_tags') ],
           throughput = {'read': config.TP_READ_INDEX_KEY / BLOCKS, 
             'write': config.TP_WRITE_INDEX_KEY} , connection=self.connection)
+
+      self.item['state'] = self.bind()
   
     self.item.save(overwrite=True)
     return self.state
 
-  def replace(self, timestamp):
+  def replace(self, new_timestamp):
     """Replace this block with new block.
     """
-    if block_pos(timestamp) != self.n:
+    if block_pos(new_timestamp) != self.n:
       raise ValueError('time %s (pos=%s) is not valid for block (pos=%s)' % \
-           (timestamp, block_pos(timestamp), self.n))
-    if base_time(timestamp) == self.tbase:
+           (new_timestamp, block_pos(new_timestamp), self.n))
+    if base_time(new_timestamp) == self.tbase:
       return self
-    self.delete_tables(timestamp)
+    self.delete_tables(new_timestamp)
     return self
 
-  def delete_tables(self, timestamp=None):
+  def delete_tables(self, new_timestamp=None):
     """Delete the tables for this block.
     """
-    if not timestamp:
-      timestamp = self.tbase
+    if not new_timestamp:
+      new_timestamp = self.tbase
 
     if self.data_points_table:
-      self.data_points_table.delete()
+      try:
+        self.data_points_table.delete()
+      except: pass
       self.data_points_table = None
       self.dp_writer = None
-      del self.item['data_points_name']
     if self.index_table:
-      self.index_table.delete()
+      try:
+        self.index_table.delete()
+      except: pass
       self.index_table = None
-      del self.item['index_name']
 
-    self.item.delete()
+    try:
+      self.item.delete()
+    except: pass
+
     self.item = Item(self.master, 
         data=dict(self.item.items()))
     self.item['state'] = 'INITIAL'
-    self.item['tbase'] = base_time(timestamp)
-    self.item.save()
+    self.item['tbase'] = base_time(new_timestamp)
+    self.item.save(overwrite=True)
 
     return self.state
  
@@ -169,19 +179,10 @@ class Block(object):
       self.dp_writer.flush()
     except: pass
     self.dp_writer = None
-    self.data_points_table.update({'read': config.TP_READ_DATAPOINTS / BLOCKS, 'write': 1})
-    self.index_table.update({'read': config.TP_READ_INDEX_KEY / BLOCKS, 'write': 1})
-
-  def wait_for_active(self, max_wait=120, retry_secs=1):
-    """Wait for block's tables to become active.
-    """
-    while self.state != 'ACTIVE' and max_wait > 0:
-      time.sleep(retry_secs)
-      max_wait -= retry_secs
-
-    self.item['state'] = self.state
-    self.item.save()
-    return self.state
+    if self.data_points_table:
+      self.data_points_table.update({'read': config.TP_READ_DATAPOINTS / BLOCKS, 'write': 1})
+    if self.index_table:
+      self.index_table.update({'read': config.TP_READ_INDEX_KEY / BLOCKS, 'write': 1})
 
   @property
   def n(self):
@@ -213,6 +214,7 @@ class Block(object):
   def store_datapoint(self, timestamp, metric, tags, value, domain):
     """Store index key and datapoint value in tables.
     """
+    #TODO: exception
     if not self.dp_writer: return
 
     key = util.hdata_points_key(domain, metric, timestamp, tags)
@@ -293,9 +295,7 @@ class DatapointsSchema(object):
   @staticmethod
   def delete(connection):
     for block in DatapointsSchema(connection).blocks:
-      try:
-        block.delete_tables()
-      except: pass
+      block.delete_tables()
     try:
       Table('amdw_dp_master', connection=connection).delete()
     except: pass
@@ -373,15 +373,19 @@ class DatapointsSchema(object):
   def perform_maintenance(self):
     """Perform maintenance tasks.
     """
+    print time.asctime(), 'perform_maintenance'
     if self.should_create_next():
+      print time.asctime(), 'perform_maintenance: should_create_next'
       next = self.create_next()
       next.create_tables()
 
     if self.should_turndown_previous():
+      print time.asctime(), 'perform_maintenance: should_turndown_previous'
       self.previous().turndown_tables()
 
     current = self.current()
     if not current or current.state == 'INITIAL':
+      print time.asctime(), 'perform_maintenance: create current'
       current = self.create_current()
       current.create_tables()
 
@@ -448,7 +452,7 @@ class MaintenanceWorker(Thread):
   def run(self):
     while not self.shutdown_:
       try:
-        time.sleep(1)   
+        time.sleep(5)   
         self.blocks.perform_maintenance()
       except:     # TODO log
         print "Unexpected error running table maintenance tasks:"

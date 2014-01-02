@@ -27,6 +27,11 @@
 from amondawa import config
 import sys, pprint
 
+if len(sys.argv) < 2:
+  print 'usage:\n  %s <configfile.py>' % sys.argv[0]
+  sys.exit(1)
+
+
 try:
   execfile(sys.argv[1])
   if 'configuration' not in locals(): raise ValueError('')

@@ -50,6 +50,7 @@ class Schema(object):
   index_key_lru = LRUCache(config.CACHE_QUERY_INDEX_KEY)
 
   @staticmethod
+  # TODO: deal with concurrent table operation limit (tables operations > 10)
   def delete(connection):
     """Destructive delete of schema and data.
     """

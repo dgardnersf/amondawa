@@ -28,13 +28,7 @@ import amondawa, os, sys, time
 
 MAX_WAIT = 120
 
-try:
-  REGION = os.environ['AMDW_REGION']
-except:
-  print 'error reading region from AMDW_REGION environment variable'
-  print 'set AMDW_REGION environemt variable to desired region; e.g.:'
-  print '$ export AMDW_REGION=us-west-2'
-  sys.exit(1)
+REGION = os.environ.get('AMDW_REGION', 'us-west-2')
 
 connection = amondawa.connect(REGION)
 

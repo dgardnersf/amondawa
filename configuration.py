@@ -20,10 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+MIN=60*1000
+HR=60*MIN
+
 configuration = {
- 'store_column_height':   1*60*1000,    # milliseconds of measurements in a datapoints hashkey
- 'store_history':         4*60*60*1000, # milliseconds of history to store (more will be deleted)
- 'store_history_blocks':  4,            # history will be divided into this many archive blocks
+ 'store_column_height':   5*MIN,        # milliseconds of measurements in a datapoints hashkey
+ 'store_history':         1*HR,         # milliseconds of history to store (more will be deleted)
+ 'store_history_blocks':  3,            # history will be divided into this many archive blocks
  'mt_readers':            20,           # number of datapoints query threads
  'mt_writers':            5,            # number of datapoints writer threads
  'mt_write_delay':        2,            # number of seconds to wait for more datapoints before flushing 

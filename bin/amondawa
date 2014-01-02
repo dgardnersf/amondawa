@@ -24,13 +24,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+
+from amondawa import config, dp_schema, util
 from amondawa import query as aquery
+
 from copy import deepcopy
 from datetime import datetime
 from tests.data import all_metrics
 from tests.http_writer import *
 from tests.query import QueryRunner
 from tests.stats import Intervals
+
+import amondawa
+
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
@@ -316,7 +322,48 @@ def stream_query(stream=0, interval=0, offset=0, duration_secs=30):
       }
   return query
 
+def block_query(duration_mins):
+  """Create query based on current dynamo index tables.
+  """
+  cnx = amondawa.connect(config.REGION)
+  dps = dp_schema.DatapointsSchema(cnx)
+
+  duration = duration_mins*60*1000
+  now = util.now()
+
+  min_start = now - config.get().STORE_HISTORY
+  max_start = now - duration
+
+  start_time = random.randint(min_start, max_start)
+  end_time = start_time + duration
+
+  metrics = []
+  query = {
+      'start_absolute': start_time,
+      'end_absolute': end_time,
+      'metrics': metrics
+      }
+ 
+  index_keys = [util.IndexKey(k) for k in dps.current().index_table.scan()]
+  index_keys = set([(k.get_metric(), k.get_tag_string()) for k in index_keys])
+
+  index_keys = random.sample(index_keys, random.randint(1,min(len(index_keys), 3)))
+
+  # for each stream pick some tags that will match
+  mtags = {}
+  for metric, tags in index_keys:
+    tags = util.tags_from_string(tags)
+    mkeys = random.sample(tags.keys(), random.randint(1,min(len(tags.keys()), 3)))
+    mtags = dict(zip(mkeys, [tags[k] for k in mkeys]))
+    metrics.append({
+      'tags': mtags,
+      'name': metric
+      })
+  return query
+
 def random_query():
+  """Create a query based on current writers.
+  """
   if not WRITERS: return
   start, end = INTERVALS.choose_random_interval()
 
