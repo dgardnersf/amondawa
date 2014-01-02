@@ -25,7 +25,7 @@
 # IN THE SOFTWARE.
 
 
-from amondawa import config, dp_schema, util
+from amondawa import config, datapoints_schema, util
 from amondawa import query as aquery
 
 from copy import deepcopy
@@ -326,7 +326,7 @@ def block_query(duration_mins):
   """Create query based on current dynamo index tables.
   """
   cnx = amondawa.connect(config.REGION)
-  dps = dp_schema.DatapointsSchema(cnx)
+  dps = datapoints_schema.DatapointsSchema(cnx)
 
   duration = duration_mins*60*1000
   now = util.now()

@@ -25,7 +25,7 @@ Classes dealing directly with the dynamodb schema.
 """
 
 from amondawa import util, config
-from amondawa.dp_schema import DatapointsSchema
+from amondawa.datapoints_schema import DatapointsSchema
 from amondawa.util import IndexKey
 
 from boto import dynamodb2

@@ -373,19 +373,20 @@ class DatapointsSchema(object):
   def perform_maintenance(self):
     """Perform maintenance tasks.
     """
-    print time.asctime(), 'perform_maintenance'
+    # TODO: info log
+    #print time.asctime(), 'perform_maintenance'
     if self.should_create_next():
-      print time.asctime(), 'perform_maintenance: should_create_next'
+      #print time.asctime(), 'perform_maintenance: should_create_next'
       next = self.create_next()
       next.create_tables()
 
     if self.should_turndown_previous():
-      print time.asctime(), 'perform_maintenance: should_turndown_previous'
+      #print time.asctime(), 'perform_maintenance: should_turndown_previous'
       self.previous().turndown_tables()
 
     current = self.current()
     if not current or current.state == 'INITIAL':
-      print time.asctime(), 'perform_maintenance: create current'
+      #print time.asctime(), 'perform_maintenance: create current'
       current = self.create_current()
       current.create_tables()
 
@@ -419,7 +420,27 @@ class DatapointsSchema(object):
     """Query index for keys.
     """
     now = util.now()
-    start_time, end_time =  max(now - AVAILABLE_HISTORY, start_time), min(now, end_time)
+    max_time = now
+    min_time = now - AVAILABLE_HISTORY
+
+#TODO: debug logging
+#     print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+#     print 'min_time:  ', min_time,   '\n', \
+#           'start_time:', start_time, '\n', \
+#           'max_time:  ', max_time,   '\n', \
+#           'end_time:  ', end_time,   '\n', \
+#           'diff:      ', end_time - start_time
+
+    start_time, end_time =  min(max(min_time, start_time), max_time), \
+         max(min(max_time, end_time), min_time)
+
+#     print 'start_time:', start_time, '\n', \
+#           'end_time:  ', end_time,   '\n', \
+#           'diff:      ', end_time - start_time
+#     print "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+
+    if start_time == end_time: return []
+
     ret = []
     for block in filter(lambda v: v, 
         [self.get_block(t) for t in range(start_time, end_time + BLOCK_SIZE, BLOCK_SIZE)]):
