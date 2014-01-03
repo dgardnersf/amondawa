@@ -34,14 +34,13 @@ import amondawa, os, sys, argparse, random, os, base64, time
 
 ACTIONS = ('delete_table', 'create_table', 'add', 'delete', 'list', 'deactivate', \
     'activate', 'add_perms', 'delete_perms', 'set_perms')
-ANY_DOMAIN = 'anydomain'
+ANY_DOMAIN = '*'
 MAX_WAIT = 120
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('action', type=str, help='action: ' + str(ACTIONS))
-parser.add_argument('--permission', action='append', help='permissions: r, w, rw')
-parser.add_argument('--domain', action='append', help='domain: domain | any')
+parser.add_argument('--permission', action='append', help='permissions: domain:r, domain:w, domain:rw')
 parser.add_argument('--key', help='access key')
 
 r = random.Random()
@@ -85,7 +84,7 @@ def usage(details=None, list_actions=False):
 def delete_table(connection):
   credentials_table = Table('amdw_credentials', connection=connection)
   desc = credentials_table.describe()
-  status = desc['Table']['TableStatus'] == 'ACTIVE'
+  status = desc['Table']['TableStatus']
   if status == 'ACTIVE':
     credentials_table.delete()
   else:
@@ -126,11 +125,25 @@ def get_table(connection, create=False):
 
   return credentials_table
 
-def to_permission_strings(domains, permissions):
-  return set([':'.join(dp) for dp in zip(domains, permissions)])
+def valid_permissions(action, permissions):
+  for p in permissions:
+    if len(p.split(':')) != 2:
+      return False
+    domain, perm = p.split(':')
+    if action != 'delete_perms' and domain == ANY_DOMAIN:
+      yn("WARNING: granting access to '%s' will allow access to any domain. Continue?" % domain)
+    if perm not in ('r', 'w', 'rw'):
+      return False
+  return True
 
-def valid_permissions(permission):
-  return all ([p in ('r', 'w', 'rw') for p in permission])
+def to_perm_set(permissions):
+  ret = set()
+  for p in permissions:
+    domain, perm = p.split(':')
+    for rw in list(perm):
+      ret.add(':'.join([domain, rw]))
+  return ret
+ 
 
 def get_key(connection, id, exit=True):
   credentials_table = get_table(connection)
@@ -140,13 +153,15 @@ def get_key(connection, id, exit=True):
     sys.exit(1)
   return item
 
+
 def edit_perms(action, permissions, key):
   if action == 'set_perms':
     key['permissions'] = permissions
   elif action == 'add_perms':
     key['permissions'].update(permissions)
   elif action == 'delete_perms':
-    key['permissions'].discard(permissions)
+    for p in permissions:
+      key['permissions'].discard(p)
 
   if not key['permissions']:
     print 'permissions cannot be empty'
@@ -162,11 +177,6 @@ action = args['action']
 
 if action not in ACTIONS:
   usage('Unknown action: ' + action, list_actions=True)
-if args['permission'] and not args['domain']:
-  usage('permission must also specify domain using --domain')
-if  args['permission'] and len(args['permission']) != len(args['domain']):
-  usage('number of domain arguments must match number of permission arguments')
-
 
 if action == 'delete_table':
   yn('Delelete amdw_credentials table?')
@@ -180,9 +190,10 @@ elif action == 'create_table':
 elif action == 'add':
   if not args['permission']:
     usage("You must specify initial permissions for the new access key.")
-  if not valid_permissions(args['permission']):
-    usage("Permissions %s not valid. Permissions must be one of 'r', 'w', or 'rw'." % args['permission'])
-  permissions = to_permission_strings(args['domain'], args['permission'])
+  if not valid_permissions(action, args['permission']):
+    usage("Permissions %s not valid. Permissions must be one of " + 
+        "'domain:r', 'domain:w', or 'domain:rw'." % args['permission'])
+  permissions = to_perm_set(args['permission'])
   yn("Add new access key with initial permissions %s" % permissions + '?')
 
   connection = amondawa.connect(config.REGION)
@@ -246,9 +257,10 @@ elif action == 'add_perms' or action == 'delete_perms' or action == 'set_perms':
     usage('You must specify an access key to change permissions for.')
   if not args['permission']:
     usage("You must specify the permissions to change for access key: '" + args['key'] + "'.")
-  if not valid_permissions(args['permission']):
-    usage("Permissions %s not valid. Permissions must be one of 'r', 'w', or 'rw'." % args['permission'])
-  permissions = to_permission_strings(args['domain'], args['permission'])
+  if not valid_permissions(action, args['permission']):
+    usage("Permissions %s not valid. Permissions must be one of " + 
+        "'domain:r', 'domain:w', or 'domain:rw'." % args['permission'])
+  permissions = to_perm_set(args['permission'])
   yn("Change access key '" + args['key'] + "' permissions: %s" % permissions)
 
   connection = amondawa.connect(config.REGION)
