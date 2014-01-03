@@ -28,8 +28,15 @@ from amondawa.schema import Schema
 from amondawa import config
 import amondawa, os, sys
 
+print "Create Amondawa schema in region:", ">>>>", config.REGION, "<<<<", "Y/[N]?"
+if sys.stdin.readline() != "Y\n":
+  print "Aborted."
+  sys.exit(1)
+
 connection = amondawa.connect(config.REGION)
 try:
   Schema.create(connection)
 finally:
   connection.close()
+
+print "Schema created."

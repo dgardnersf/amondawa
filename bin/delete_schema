@@ -31,7 +31,8 @@ import amondawa, sys, os
 connection = amondawa.connect(config.REGION)
 
 print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-print "This operation will delete the Amondawa schema all the DATA!!"
+print "This operation will delete the Amondawa schema all the DATA in the following region:", \
+      ">>>>", config.REGION, "<<<<", "!!"
 print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 print "Please confirm that this is your intention by typing the following phrase twice:"
 print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
