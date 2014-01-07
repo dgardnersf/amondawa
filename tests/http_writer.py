@@ -20,19 +20,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+from amondawa.auth import auth_add_auth1
 from tests.writers import RandomWriter
 import simplejson, sys, time, httplib, pprint
-
-from amondawa.auth import AmzAuthBuilder
-from boto.pyami.config import Config
+import traceback
 
 class RandomHTTPWriter(RandomWriter):
   """Write random metrics, tags, datapoints to amondawa datastore via HTTP.
   """
-  def __init__(self, host, port, path='/api/v1/nodomain/datapoints', rate=20, batch_size=20, duration=10):
+  def __init__(self, host, port, access_key_id, secret_access_key, path='/api/v1/nodomain/datapoints', 
+      rate=20, batch_size=20, duration=10):
     super(RandomHTTPWriter, self).__init__(rate=rate, batch_size=batch_size, duration=duration) 
-
-    self.auth_builder = AmzAuthBuilder(Config('./client.cfg'))  # TODO: move up cfg
+    self.access_key_id = access_key_id
+    self.secret_access_key = secret_access_key
 
     self.connection = httplib.HTTPConnection(host, port)
     self.port = port
@@ -98,14 +98,16 @@ class RandomHTTPWriter(RandomWriter):
 
   def send(self):
     try:
-      headers = self.auth_builder.add_auth(self.host, self.port, 
-          'POST', self.path, '', {'Content-Type': 'application/json'})
+      # TODO: use protocol (http/https)
+      headers = auth_add_auth1(self.access_key_id, self.secret_access_key,
+       'POST', self.host, self.port, self.path, {'Content-Type': 'application/json'})
       self.connection.request('POST', self.path, simplejson.dumps(self.dps), headers)
       response = self.connection.getresponse()
       data = response.read()
       self._count_response(response)
       self.requests += 1
     except:
+      #traceback.print_exc()
       self._count_error(sys.exc_info())
 
   def _count_error(self, exc_info):

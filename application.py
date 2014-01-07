@@ -22,6 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+"""
+Amondawa application entry point.
+"""
+
 from amondawa.http import app as application
 
 application.debug = True

@@ -35,12 +35,12 @@ from boto.dynamodb2.types import *
 
 from repoze.lru import LRUCache
 
-import atexit
+import atexit, collections
 
 config = config.get()
 
 class Schema(object):
-  table_names = 'amdw_metric_names', 'amdw_tag_names', 'amdw_tag_values'
+  table_names = 'amdw_metric_names', 'amdw_tag_names', 'amdw_tag_values', 'amdw_credentials'
 
   metric_names_tp      = { 'read': 1, 'write': 1 }
   tag_names_tp         = { 'read': 1, 'write': 1 }
@@ -50,7 +50,7 @@ class Schema(object):
   index_key_lru = LRUCache(config.CACHE_QUERY_INDEX_KEY)
 
   @staticmethod
-  # TODO: deal with concurrent table operation limit (tables operations > 10)
+  # TODO: handle concurrent table operations limit (tables operations > 10)
   def delete(connection):
     """Destructive delete of schema and data.
     """
@@ -84,6 +84,8 @@ class Schema(object):
 
     DatapointsSchema.create(connection)
 
+  Credential = collections.namedtuple('Key', 'access_key_id permissions secret_access_key state')
+
   def __init__(self, connection):
     """Initilize data structures.
     """
@@ -110,6 +112,12 @@ class Schema(object):
     """Close connection and flush pending operations.
     """
     self.connection.close()
+
+  def get_credentials(self):
+    """Get credentials.
+    """
+    return dict([(item['access_key_id'], Schema.Credential(item['access_key_id'], item['permissions'], 
+      item['secret_access_key'], item['state'])) for item in self.amdw_credentials.scan()])
 
   def get_metric_names(self, domain):
     """Get all metric names.

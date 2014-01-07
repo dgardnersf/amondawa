@@ -23,38 +23,57 @@
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
+"""
+Amondawa test client.
+"""
 
+from ConfigParser import ConfigParser
 from amondawa import config, datapoints_schema, util
 from amondawa import query as aquery
-
 from copy import deepcopy
 from datetime import datetime
 from tests.data import all_metrics
 from tests.http_writer import *
 from tests.query import QueryRunner
 from tests.stats import Intervals
-
-import amondawa
-
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
-import time, random, simplejson
+import time, random, simplejson, amondawa, sys
 
+if len(sys.argv) != 2:
+  print
+  print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+  print 'usage: %s config/amondawa_client.cfg'
+  print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+  print
+  sys.exit(1)
+
+defaults = {
+  'HOST':'localhost', # Amondawa ReST Service HOST
+  'PORT': 5000,       # Amondawa ReST Service PORT
+  'RATE': 100,        # overall rate (datapoints per second) (split across NTHREADS)
+  'NTHREADS': 10,     # how many threads to use
+  'DURATION': 10,     # duration in minutes
+  'BATCH_SIZE': 5     # datapoints per request
+  }
+client_config = ConfigParser(defaults)
+client_config.read(sys.argv[1])
 
 random.seed(12321)   # random but consistent
 
 INTERVALS = Intervals()
 
-REGION        = 'us-west-2'
+HOST          = client_config.get('Address', 'HOST')
+PORT          = client_config.getint('Address', 'PORT')
 
-HOST          = 'amondawa.elasticbeanstalk.com'
-PORT          = 80
+RATE          = client_config.getint('Load', 'RATE')
+NTHREADS      = client_config.getint('Load', 'NTHREADS')
+DURATION      = client_config.getint('Load', 'DURATION')
+BATCH_SIZE    = client_config.getint('Load', 'BATCH_SIZE')
 
-RATE          = 100.     # overall rate (split across NTHREADS)
-NTHREADS      = 10       # how many threads to use
-DURATION      = 10       # duration in minutes
-BATCH_SIZE    = 5        # datapoints per request
+ACCESS_KEY_ID     = client_config.get('Credentials', 'aws_access_key_id')
+SECRET_ACCESS_KEY = client_config.get('Credentials', 'aws_secret_access_key')
 
 WRITERS       = []       # writers
 QUERY_RUNNER  = None     # query thread/runner
@@ -66,11 +85,10 @@ SAVED_QUERIES = {}       # saved queries
 AGGREGATOR = None
 DOWNSAMPLER = None
 
-
 def settings():
   """Show current settings.
   """
-  global HOST, PORT, DURATION, RATE, NTHREADS, REGION, DOWNSAMPLER, AGGREGATOR
+  global HOST, PORT, DURATION, RATE, NTHREADS, DOWNSAMPLER, AGGREGATOR
   print """
 region:      %s
 host:        %s
@@ -81,7 +99,7 @@ threads:     %s
 batch_size:  %s
 downsampler: %s
 aggregator:  %s
-""" % (REGION, HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE, DOWNSAMPLER, AGGREGATOR)
+""" % (config.REGION, HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE, DOWNSAMPLER, AGGREGATOR)
 
 def commands():
   print """
@@ -168,7 +186,7 @@ def reset():
 def start(block=False):
   global WRITERS, NTHREADS, RATE, INTERVALS, DURATION
   stop()
-  WRITERS = [RandomHTTPWriter(HOST, PORT, rate=RATE/NTHREADS, 
+  WRITERS = [RandomHTTPWriter(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY, rate=RATE/NTHREADS, 
      duration=DURATION, batch_size=BATCH_SIZE) for i in range(NTHREADS)]
 
   _assign_colors(WRITERS)
@@ -292,7 +310,7 @@ def query(query=None):
     return
 
   if not QUERY_RUNNER:
-    QUERY_RUNNER = QueryRunner(HOST, PORT)
+    QUERY_RUNNER = QueryRunner(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY)
 
   if not query:
     query = random_query()
@@ -466,13 +484,9 @@ def _find_writer(metric, tags):
   return filter(lambda w: w.tags == tags and w.metric == metric, WRITERS)[0]
 
 
+if __name__ == '__main__':
+  import IPython
+  ip = IPython.get_ipython()
 
-
-
-
-import IPython
-ip = IPython.get_ipython()
-
-ip.autocall = 2
-ip.interact()
-
+  ip.autocall = 2
+  ip.interact()

@@ -20,35 +20,33 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+from amondawa.auth import auth_add_auth1
 import simplejson, httplib
 from threading import Thread
 
-from amondawa.auth import AmzAuthBuilder
-from boto.pyami.config import Config
-
 class QueryRunner(Thread):
-  URI = '/api/v1/nodomain/datapoints/query'
-  HEADERS = {'Content-Type': 'application/json'}
+  PATH = '/api/v1/nodomain/datapoints/query'
 
-  def __init__(self, host, port):
+  def __init__(self, host, port, access_key_id, secret_access_key):
     super(QueryRunner, self).__init__()
+    self.access_key_id = access_key_id
+    self.secret_access_key = secret_access_key
     self.host = host
     self.port = port
     self._connect()
-    self.auth_builder = AmzAuthBuilder(Config('./client.cfg'))  # TODO: move up cfg
     
   def perform_query(self, query):
     return self._perform_query(simplejson.dumps(query))
 
   def _perform_query(self, query):
     try:
-      headers = self.auth_builder.add_auth(self.host, self.port, 
-          'POST', QueryRunner.URI, '', QueryRunner.HEADERS)
-      self.connection.request("POST", QueryRunner.URI, query, headers)
+      headers = auth_add_auth1(self.access_key_id, self.secret_access_key,
+       'POST', self.host, self.port, QueryRunner.PATH, {'Content-Type': 'application/json'})
+      self.connection.request('POST', QueryRunner.PATH, query, headers)
       return self.connection.getresponse()
     except:
       self._connect()
-      self.connection.request("POST", QueryRunner.URI, query, headers)
+      self.connection.request('POST', QueryRunner.PATH, query, headers)
       return self.connection.getresponse()
  
   def _connect(self):

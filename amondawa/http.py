@@ -25,7 +25,7 @@ HTTP related classes.
 """
 
 from amondawa import config
-from amondawa.auth import AmzAuthBuilder, authorized
+from amondawa.auth import authorized
 from amondawa.datastore import QueryMetric, DataPointSet, Datastore
 from amondawa.mtime import timeit
 
@@ -38,14 +38,11 @@ app = Flask('amondawa')
 
 datastore = Datastore(amondawa.connect(config.REGION))
 
-# TODO: make thread local
-auth_builder = AmzAuthBuilder(Config('./client.cfg'))  # TODO: move up cfg
-
 @app.route('/api/v1/<domain>/datapoints', methods=['POST'])
 def add_datapoints(domain):
   """Records metric data points.
   """
-  if not authorized(auth_builder, request): return ('Forbidden', 403, [])
+  if not authorized(request): return ('Forbidden', 403, [])
 
   for dps in DataPointSet.from_json_object(request.get_json()):
     datastore.put_data_points(dps, domain)
@@ -57,7 +54,7 @@ def query_database(domain):
   """Returns a list of metric values based on a set of criteria. Also returns a
       set of all tag names and values that are found across the data points.
   """
-  if not authorized(auth_builder, request): return ('Forbidden', 403, [])
+  if not authorized(request): return ('Forbidden', 403, [])
 
   # spawn all threads
   gather_threads = [datastore.query_database(query, QueryMetric.create_callback(query), domain) \
@@ -73,7 +70,7 @@ def query_metric_tags(domain):
   """Same as the query but it leaves off the data and just returns the tag
       information.
   """
-  if not authorized(auth_builder, request): return ('Forbidden', 403, [])
+  if not authorized(request): return ('Forbidden', 403, [])
 
   return (json.dumps( { 'results': [{
     'name': query.name,
@@ -84,7 +81,7 @@ def query_metric_tags(domain):
 def get_metric_names(domain):
   """Returns a list of all metric names.
   """
-  if not authorized(auth_builder, request): return ('Forbidden', 403, [])
+  if not authorized(request): return ('Forbidden', 403, [])
 
   return (json.dumps( { 'results': 
     [name for name in datastore.get_metric_names(domain)] }), 200, [])
@@ -93,7 +90,7 @@ def get_metric_names(domain):
 def get_tag_names(domain):
   """Returns a list of all tag names.
   """
-  if not authorized(auth_builder, request): return ('Forbidden', 403, [])
+  if not authorized(request): return ('Forbidden', 403, [])
 
   return (json.dumps( { 'results': 
     [name for name in datastore.get_tag_names(domain)] }), 200, [])
@@ -102,7 +99,7 @@ def get_tag_names(domain):
 def get_tag_values(domain):
   """Returns a list of all tag values.
   """
-  if not authorized(auth_builder, request): return ('Forbidden', 403, [])
+  if not authorized(request): return ('Forbidden', 403, [])
 
   return (json.dumps( { 'results': 
     [name for name in datastore.get_tag_values(domain)] }), 200, [])
