@@ -56,7 +56,9 @@ class Schema(object):
     """
     for table in Schema.table_names:
       try:
-        Table(table, connection=connection).delete()
+        # don't delete credentials table
+        if table.table_name not in ('amdw_credentials', 'amdw_config'):
+          Table(table, connection=connection).delete()
       except: pass
 
     DatapointsSchema.delete(connection)
@@ -86,7 +88,7 @@ class Schema(object):
 
   Credential = collections.namedtuple('Key', 'access_key_id permissions secret_access_key state')
 
-  def __init__(self, connection):
+  def __init__(self, connection, start_mx=False):
     """Initilize data structures.
     """
     self.connection = connection
@@ -99,7 +101,8 @@ class Schema(object):
     vars(self).update(Schema.bind(connection))
 
     self.blocks = DatapointsSchema(connection)
-    self.blocks.start_maintenance()
+    if start_mx:
+      self.blocks.start_maintenance()
 
     @atexit.register
     def close():

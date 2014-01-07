@@ -24,7 +24,7 @@
 from amondawa import util, config
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock, Thread
-import sched, sys, time, atexit, traceback
+import sched, time, traceback
 
 config = config.get()
 

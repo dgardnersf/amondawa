@@ -43,7 +43,7 @@ class Datastore(object):
     """ctor
     """
     self.connection = connection
-    self.dynamodb = Schema(connection)
+    self.dynamodb = Schema(connection, start_mx=True)
 
   def put_data_points(self, dps, domain):
     """Store elements of DataPointSet.
@@ -135,17 +135,6 @@ class DataPoint(object):
     if not ret:
       return cmp(self.value, o.value)
     return ret
-
-#   def __hash__(self):
-#     ret = 17
-#     ret = 31*ret + hash(self.value)
-#     ret = 31*ret + hash(self.timestamp)
-#     return ret
-# 
-#   def __eq__(self, o):
-#     return self is o or (type(o) == DataPoint and \
-#       self.value == o.value and self.timestamp == o.timestamp)
-
 
 class DataPointSet(list):
   """A collection of datapoints.

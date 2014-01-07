@@ -23,7 +23,7 @@
 # IN THE SOFTWARE.
 
 """
-HTTP authentication related classes.
+HTTP authentication related.
 
 Sample auth header:
 
@@ -52,12 +52,16 @@ schema = Schema(amondawa.connect(config.REGION))
 # scan the credentials table  TODO: periodically scan 
 amdw_credentials = schema.get_credentials()
 
-def authorized(request):
+def authorized(request, domain, op):
   """Compute AWS4-HMAC-SHA256 authentication signature and return True if
      signature matches.  Return False if signature does not match or request 
      has missing or stale header information.
+
+     Performs HMAC authentication and domain:operation authorization.
   """
   # TODO: really need debug logging here
+  # TODO: think more about order (e.g. permissions authz before 
+  #            or after authn)
 
   # werkzeug Headers class - keys are case insensitive
   auth_header, host_header, date_header = \
@@ -67,7 +71,7 @@ def authorized(request):
   if None in (auth_header, host_header, date_header):
     return False
 
-  # don't messages with older than MAX_SKEW date header
+  # don't allow messages with older than MAX_SKEW date header
   dt = datetime.datetime.utcnow() - datetime.datetime.strptime(date_header, '%Y%m%dT%H%M%SZ')
   if abs(dt.total_seconds()) > MAX_SKEW:
     return False
@@ -80,16 +84,16 @@ def authorized(request):
     aws_access_key_id = credentials.split('/')[0]
     record = amdw_credentials.get(aws_access_key_id)
     if not record: return False
-    #print record
     if record.state != 'ACTIVE': return False
     aws_secret_access_key = record.secret_access_key
-    #print aws_secret_access_key
-    aws_secret_access_key = str(aws_secret_access_key)
-    #print aws_secret_access_key
   except:
     # cannot find access_key_id or secret_access_key
     return False
 
+  # check domain:operation permissions
+  if not check_access(domain, op, record.permissions):
+    return False
+ 
   headers = {}
   for k in request.headers.keys(lower=True):
     #   Authorization header must be recomputed
@@ -117,6 +121,17 @@ def authorized(request):
   auth_check_auth(prequest, aws_access_key_id, aws_secret_access_key)
   # TODO: just compare signature (not whole header)
   return auth_header == headers['Authorization']
+
+
+def check_access(domain, op, permissions):
+  """return True if the permissions allow access to the provided domain and
+     operation 
+  """
+  for p in permissions:
+    d, o = p.split(':')
+    if (d == '*' or d == domain) and o == op:
+      return True
+  return False
 
 class ProxyHTTPRequest(object):
   """A class to make the rest of this code think it's operating on a 'real' request

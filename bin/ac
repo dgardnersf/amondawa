@@ -101,7 +101,7 @@ def get_table(connection, create=False):
     bound = True
   except:
     if not create:
-      yn('Credential table (amdw_credentials) not found. Create it?')
+      yn('Credential table (amdw_credentials) not found in region %s. Create it?' % config.REGION)
     credentials_table = Table.create('amdw_credentials',
           schema = [ HashKey('access_key_id') ],
           throughput = { 'read': 1, 'write': 1 }, connection=connection)
@@ -120,7 +120,7 @@ def get_table(connection, create=False):
       desc = credentials_table.describe()
 
   if desc['Table']['TableStatus'] != 'ACTIVE':
-    print 'error accessing amdw_credentials table in region', region
+    print 'error accessing amdw_credentials table in region', config.REGION
     sys.exit(1)
 
   return credentials_table
@@ -178,12 +178,15 @@ action = args['action']
 if action not in ACTIONS:
   usage('Unknown action: ' + action, list_actions=True)
 
+
+print 'configuring amdw_credentials table in region', config.REGION
+
 if action == 'delete_table':
-  yn('Delelete amdw_credentials table?')
+  yn('Delelete amdw_credentials table in region %s?' % config.REGION)
   connection = amondawa.connect(config.REGION)
   delete_table(connection)
 elif action == 'create_table':
-  yn('Create amdw_credentials table?')
+  yn('Create amdw_credentials table in region %s?' % config.REGION)
   connection = amondawa.connect(config.REGION)
   get_table(connection, create=True)
   print 'amdw_credentials table created.'
