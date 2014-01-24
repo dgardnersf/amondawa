@@ -147,11 +147,9 @@ class DataPointSet(list):
     for o in json:
       dps = cls(o['name'], o['tags'])
       if 'timestamp' in o:
-        #dps.append(DataPoint(o['timestamp'], Decimal(str(o['value']))))
         dps.append(DataPoint(o['timestamp'], util.to_dynamo_compat_type(o['value'])))
       elif 'datapoints' in o:
         for timestamp, value in o['datapoints']:
-          #dps.append(DataPoint(timestamp, Decimal(str(value))))
           dps.append(DataPoint(timestamp, util.to_dynamo_compat_type(value)))
       ret.append(dps)
     return ret

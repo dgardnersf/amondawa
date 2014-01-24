@@ -45,7 +45,9 @@ def to_dynamo_compat_type(value):
       value = set(value)
     elif type(value) is dict:
       value = MAGIC + json.dumps(value)
-    get_dynamodb_type(value)
+    dtype = get_dynamodb_type(value)
+    if dtype == 'NS':
+      value = set([Decimal(str(v)) for v in value])
   except TypeError:
     value = MAGIC + json.dumps(value)
   return value
