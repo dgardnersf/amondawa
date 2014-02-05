@@ -36,48 +36,53 @@ from tests.data import all_metrics
 from tests.http_writer import *
 from tests.query import QueryRunner
 from tests.stats import Intervals
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
-import time, random, simplejson, amondawa, sys
+import time
+import random
+import simplejson
+import amondawa
+import sys
 
 if len(sys.argv) != 2:
-  print
-  print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-  print 'usage: %s config/amondawa_client.cfg'
-  print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-  print
-  sys.exit(1)
+    print
+    print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+    print 'usage: %s config/amondawa_client.cfg'
+    print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+    print
+    sys.exit(1)
 
 defaults = {
-  'HOST':'localhost', # Amondawa ReST Service HOST
-  'PORT': 5000,       # Amondawa ReST Service PORT
-  'RATE': 100,        # overall rate (datapoints per second) (split across NTHREADS)
-  'NTHREADS': 10,     # how many threads to use
-  'DURATION': 10,     # duration in minutes
-  'BATCH_SIZE': 5     # datapoints per request
-  }
+    'HOST': 'localhost', # Amondawa ReST Service HOST
+    'PORT': 5000, # Amondawa ReST Service PORT
+    'RATE': 100, # overall rate (datapoints per second) (split across NTHREADS)
+    'NTHREADS': 10, # how many threads to use
+    'DURATION': 10, # duration in minutes
+    'BATCH_SIZE': 5     # datapoints per request
+}
 client_config = ConfigParser(defaults)
 client_config.read(sys.argv[1])
 
-random.seed(12321)   # random but consistent
+
+SEED = client_config.getint('Load', 'SEED')
+random.seed(SEED)   # random but consistent
 
 INTERVALS = Intervals()
 
-HOST          = client_config.get('Address', 'HOST')
-PORT          = client_config.getint('Address', 'PORT')
+HOST = client_config.get('Address', 'HOST')
+PORT = client_config.getint('Address', 'PORT')
 
-RATE          = client_config.getint('Load', 'RATE')
-NTHREADS      = client_config.getint('Load', 'NTHREADS')
-DURATION      = client_config.getint('Load', 'DURATION')
-BATCH_SIZE    = client_config.getint('Load', 'BATCH_SIZE')
+RATE = client_config.getint('Load', 'RATE')
+NTHREADS = client_config.getint('Load', 'NTHREADS')
+DURATION = client_config.getint('Load', 'DURATION')
+BATCH_SIZE = client_config.getint('Load', 'BATCH_SIZE')
 
-ACCESS_KEY_ID     = client_config.get('Credentials', 'aws_access_key_id')
+ACCESS_KEY_ID = client_config.get('Credentials', 'aws_access_key_id')
 SECRET_ACCESS_KEY = client_config.get('Credentials', 'aws_secret_access_key')
 
-WRITERS       = []       # writers
-QUERY_RUNNER  = None     # query thread/runner
-LAST_QUERY    = None     # last query performed
+WRITERS = []       # writers
+QUERY_RUNNER = None     # query thread/runner
+LAST_QUERY = None     # last query performed
 LAST_RESPONSE = None     # last response received
 
 SAVED_QUERIES = {}       # saved queries
@@ -85,11 +90,12 @@ SAVED_QUERIES = {}       # saved queries
 AGGREGATOR = None
 DOWNSAMPLER = None
 
+
 def settings():
-  """Show current settings.
+    """Show current settings.
   """
-  global HOST, PORT, DURATION, RATE, NTHREADS, DOWNSAMPLER, AGGREGATOR
-  print """
+    global HOST, PORT, DURATION, RATE, NTHREADS, DOWNSAMPLER, AGGREGATOR
+    print """
 region:      %s
 host:        %s
 port:        %s
@@ -101,8 +107,9 @@ downsampler: %s
 aggregator:  %s
 """ % (config.REGION, HOST, PORT, DURATION, RATE, NTHREADS, BATCH_SIZE, DOWNSAMPLER, AGGREGATOR)
 
+
 def commands():
-  print """
+    print """
 amondawa commands
 -----------------
 host         : set host
@@ -141,352 +148,388 @@ mod_query_aggregate  : apply aggregate transform to query
 mod_query            : apply downsample and aggregate transforms to query
 """
 
+
 def host(host, supress=False):
-  global HOST
-  HOST = host
-  if not supress:
-    settings()
+    global HOST
+    HOST = host
+    if not supress:
+        settings()
+
 
 def port(port, supress=False):
-  global PORT
-  PORT = port
-  if not supress:
-    settings()
+    global PORT
+    PORT = port
+    if not supress:
+        settings()
+
 
 def host_port(host_, port_):
-  host(host_, True)
-  port(port_, True)
-  settings()
+    host(host_, True)
+    port(port_, True)
+    settings()
+
 
 def rate(rate):
-  global RATE
-  RATE = rate
-  settings()
+    global RATE
+    RATE = rate
+    settings()
+
 
 def threads(count):
-  global NTHREADS
-  NTHREADS = count
-  settings()
+    global NTHREADS
+    NTHREADS = count
+    settings()
+
 
 def batch_size(batch_size):
-  global BATCH_SIZE
-  BATCH_SIZE = batch_size
-  settings()
+    global BATCH_SIZE
+    BATCH_SIZE = batch_size
+    settings()
+
 
 def reset():
-  global INTERVALS, WRITERS, QUERY_RUNNER, LAST_QUERY, \
-       LAST_RESPONSE
-  stop()
-  INTERVALS = Intervals()
-  WRITERS = []
-  QUERY_RUNNER = None
-  LAST_QUERY = None
-  LAST_RESPONSE = None
+    global INTERVALS, WRITERS, QUERY_RUNNER, LAST_QUERY, \
+        LAST_RESPONSE
+    stop()
+    INTERVALS = Intervals()
+    WRITERS = []
+    QUERY_RUNNER = None
+    LAST_QUERY = None
+    LAST_RESPONSE = None
+
 
 def start(block=False):
-  global WRITERS, NTHREADS, RATE, INTERVALS, DURATION
-  stop()
-  WRITERS = [RandomHTTPWriter(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY, rate=RATE/NTHREADS, 
-     duration=DURATION, batch_size=BATCH_SIZE) for i in range(NTHREADS)]
+    global WRITERS, NTHREADS, RATE, INTERVALS, DURATION
+    stop()
+    WRITERS = [RandomHTTPWriter(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY, rate=RATE / NTHREADS,
+                                duration=DURATION, batch_size=BATCH_SIZE) for i in range(NTHREADS)]
 
-  _assign_colors(WRITERS)
+    _assign_colors(WRITERS)
 
-  for writer in WRITERS:
-    writer.start()
-  if WRITERS: INTERVALS.start_interval()
+    for writer in WRITERS:
+        writer.start()
+    if WRITERS: INTERVALS.start_interval()
 
-  if block:
-    stop_time = time.time() + DURATION*60
-    while True:
-      time.sleep(5)
-      status()
-      if time.time() > stop_time:
-        break
-    pause()
+    if block:
+        stop_time = time.time() + DURATION * 60
+        while True:
+            time.sleep(5)
+            status()
+            if time.time() > stop_time:
+                break
+        pause()
+
 
 def flush():
-  global WRITERS
-  for writer in WRITERS:
-    print writer.flush()
+    global WRITERS
+    for writer in WRITERS:
+        print writer.flush()
+
 
 def resume():
-  global WRITERS, INTERVALS
-  for writer in WRITERS:
-    writer.unpause()
-  if WRITERS: INTERVALS.start_interval()
+    global WRITERS, INTERVALS
+    for writer in WRITERS:
+        writer.unpause()
+    if WRITERS: INTERVALS.start_interval()
+
 
 def pause():
-  global WRITERS, INTERVALS
-  totals = []
-  for writer in WRITERS:
-    writer.pause()
-    totals.append(writer.reset_stats())
-  if WRITERS and INTERVALS.running(): 
-    INTERVALS.end_interval(totals)
+    global WRITERS, INTERVALS
+    totals = []
+    for writer in WRITERS:
+        writer.pause()
+        totals.append(writer.reset_stats())
+    if WRITERS and INTERVALS.running():
+        INTERVALS.end_interval(totals)
+
 
 def stop():
-  global WRITERS, INTERVALS
-  totals = []
-  for writer in WRITERS:
-    writer.stop()
-    totals.append(writer.reset_stats())
-  if WRITERS and INTERVALS.running(): 
-    INTERVALS.end_interval(totals)
-  WRITERS = []
+    global WRITERS, INTERVALS
+    totals = []
+    for writer in WRITERS:
+        writer.stop()
+        totals.append(writer.reset_stats())
+    if WRITERS and INTERVALS.running():
+        INTERVALS.end_interval(totals)
+    WRITERS = []
+
 
 def status():
-  global WRITERS, INTERVALS
-  if not WRITERS:
-    status = 'STOPPED'
-  elif INTERVALS.running():
-    status = 'RUNNING'
-  else:
-    status = 'PAUSED'
-  print 'status:', status
-  print
-  sub_totals = [writer.totals() for writer in WRITERS]
-  for sub in sub_totals:
-    print sub
-  INTERVALS.print_history(sub_totals)
+    global WRITERS, INTERVALS
+    if not WRITERS:
+        status = 'STOPPED'
+    elif INTERVALS.running():
+        status = 'RUNNING'
+    else:
+        status = 'PAUSED'
+    print 'status:', status
+    print
+    sub_totals = [writer.totals() for writer in WRITERS]
+    for sub in sub_totals:
+        print sub
+    INTERVALS.print_history(sub_totals)
+
 
 def streams():
-  global WRITERS
-  for writer in WRITERS:
-    print writer
+    global WRITERS
+    for writer in WRITERS:
+        print writer
+
 
 def save_query(name):
-  global SAVED_QUERIES, LAST_QUERY
-  SAVED_QUERIES[name] = LAST_QUERY
+    global SAVED_QUERIES, LAST_QUERY
+    SAVED_QUERIES[name] = LAST_QUERY
+
 
 def mod_query_downsample(query):
-  return _mod_query(query, 'downsample')
+    return _mod_query(query, 'downsample')
+
 
 def mod_query_aggregate(query):
-  return _mod_query(query, 'aggregate')
+    return _mod_query(query, 'aggregate')
+
 
 def mod_query(query):
-  return mod_query_downsample(mod_query_aggregate(query))
+    return mod_query_downsample(mod_query_aggregate(query))
+
 
 def query_last():
-  global LAST_QUERY
-  return query(LAST_QUERY)
+    global LAST_QUERY
+    return query(LAST_QUERY)
+
 
 def named_query(name):
-  global SAVED_QUERIES
-  return query(SAVED_QUERIES[name])
+    global SAVED_QUERIES
+    return query(SAVED_QUERIES[name])
+
 
 def list_queries():
-  global SAVED_QUERIES
-  return SAVED_QUERIES.keys()
+    global SAVED_QUERIES
+    return SAVED_QUERIES.keys()
+
 
 def downsample(name='avg', value=20, unit='seconds'):
-  global DOWNSAMPLER
-  assert unit in aquery.FREQ_TYPE
-  assert name in aquery.AGGREGATORS
-  DOWNSAMPLER = {
-  'sampling': {
-    'value': value,
-    'unit': unit
-    },
-  'name': name
-  }
+    global DOWNSAMPLER
+    assert unit in aquery.FREQ_TYPE
+    assert name in aquery.AGGREGATORS
+    DOWNSAMPLER = {
+        'sampling': {
+            'value': value,
+            'unit': unit
+        },
+        'name': name
+    }
+
 
 def nodownsample():
-  global DOWNSAMPLER
-  DOWNSAMPLER = None
+    global DOWNSAMPLER
+    DOWNSAMPLER = None
+
 
 def aggregate(value='avg'):
-  global AGGREGATOR
-  assert value in aquery.AGGREGATORS.keys()
-  AGGREGATOR = value
+    global AGGREGATOR
+    assert value in aquery.AGGREGATORS.keys()
+    AGGREGATOR = value
+
 
 def noaggregate():
-  global AGGREGATOR
-  AGGREGATOR = None
+    global AGGREGATOR
+    AGGREGATOR = None
+
 
 def query(query=None):
-  global QUERY_RUNNER, HOST, PORT, LAST_QUERY, LAST_RESPONSE, WRITERS
-  if not query and not WRITERS: 
-    return
+    global QUERY_RUNNER, HOST, PORT, LAST_QUERY, LAST_RESPONSE, WRITERS
+    if not query and not WRITERS:
+        return
 
-  if not QUERY_RUNNER:
-    QUERY_RUNNER = QueryRunner(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY)
+    if not QUERY_RUNNER:
+        QUERY_RUNNER = QueryRunner(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY)
 
-  if not query:
-    query = random_query()
+    if not query:
+        query = random_query()
 
-  LAST_QUERY = query
-  response = QUERY_RUNNER.perform_query(query)
+    LAST_QUERY = query
+    response = QUERY_RUNNER.perform_query(query)
 
-  LAST_RESPONSE = response.status, response.reason, \
-        simplejson.loads(response.read())
+    LAST_RESPONSE = response.status, response.reason, \
+                    simplejson.loads(response.read())
 
-  return LAST_QUERY, LAST_RESPONSE
+    return LAST_QUERY, LAST_RESPONSE
+
 
 def stream_query(stream=0, interval=0, offset=0, duration_secs=30):
-  if not WRITERS: return
-  start = 1000*(INTERVALS.intervals[interval][0] + offset)
-  end = min(start + 1000*duration_secs, 1000*INTERVALS.intervals[interval][1])
-  stream = WRITERS[stream]
-  metrics = []
-  query = {
-      'start_absolute': start,
-      'end_absolute': end,
-      'metrics': [{
-        'tags': stream.tags,
-        'name': stream.metric
-        }]
-      }
-  return query
+    if not WRITERS: return
+    start = 1000 * (INTERVALS.intervals[interval][0] + offset)
+    end = min(start + 1000 * duration_secs, 1000 * INTERVALS.intervals[interval][1])
+    stream = WRITERS[stream]
+    query = {
+        'start_absolute': start,
+        'end_absolute': end,
+        'metrics': [{
+                        'tags': stream.tags,
+                        'name': stream.metric
+                    }]
+    }
+    return query
+
 
 def block_query(duration_mins):
-  """Create query based on current dynamo index tables.
+    """Create query based on current dynamo index tables.
   """
-  cnx = amondawa.connect(config.REGION)
-  dps = datapoints_schema.DatapointsSchema(cnx)
+    cnx = amondawa.connect(config.REGION)
+    dps = datapoints_schema.DatapointsSchema(cnx)
 
-  duration = duration_mins*60*1000
-  now = util.now()
+    duration = duration_mins * 60 * 1000
+    now = util.now()
 
-  min_start = now - config.get().STORE_HISTORY
-  max_start = now - duration
+    min_start = now - config.get().STORE_HISTORY
+    max_start = now - duration
 
-  start_time = random.randint(min_start, max_start)
-  end_time = start_time + duration
+    start_time = random.randint(min_start, max_start)
+    end_time = start_time + duration
 
-  metrics = []
-  query = {
-      'start_absolute': start_time,
-      'end_absolute': end_time,
-      'metrics': metrics
-      }
- 
-  index_keys = [util.IndexKey(k) for k in dps.current().index_table.scan()]
-  index_keys = set([(k.get_metric(), k.get_tag_string()) for k in index_keys])
+    metrics = []
+    query = {
+        'start_absolute': start_time,
+        'end_absolute': end_time,
+        'metrics': metrics
+    }
 
-  index_keys = random.sample(index_keys, random.randint(1,min(len(index_keys), 3)))
+    index_keys = [util.IndexKey(k) for k in dps.current().index_table.scan()]
+    index_keys = set([(k.get_metric(), k.get_tag_string()) for k in index_keys])
 
-  # for each stream pick some tags that will match
-  mtags = {}
-  for metric, tags in index_keys:
-    tags = util.tags_from_string(tags)
-    mkeys = random.sample(tags.keys(), random.randint(1,min(len(tags.keys()), 3)))
-    mtags = dict(zip(mkeys, [tags[k] for k in mkeys]))
-    metrics.append({
-      'tags': mtags,
-      'name': metric
-      })
-  return query
+    index_keys = random.sample(index_keys, random.randint(1, min(len(index_keys), 3)))
+
+    # for each stream pick some tags that will match
+    mtags = {}
+    for metric, tags in index_keys:
+        tags = util.tags_from_string(tags)
+        mkeys = random.sample(tags.keys(), random.randint(1, min(len(tags.keys()), 3)))
+        mtags = dict(zip(mkeys, [tags[k] for k in mkeys]))
+        metrics.append({
+            'tags': mtags,
+            'name': metric
+        })
+    return query
+
 
 def random_query():
-  """Create a query based on current writers.
+    """Create a query based on current writers.
   """
-  if not WRITERS: return
-  start, end = INTERVALS.choose_random_interval()
+    if not WRITERS: return
+    start, end = INTERVALS.choose_random_interval()
 
-  metrics = []
-  query = {
-      'start_absolute': start,
-      'end_absolute': end,
-      'metrics': metrics
-      }
- 
-  # pick some streams to match
-  streams = random.sample(WRITERS, random.randint(1,min(len(WRITERS), 3)))
+    metrics = []
+    query = {
+        'start_absolute': start,
+        'end_absolute': end,
+        'metrics': metrics
+    }
 
-  # for each stream pick some tags that will match
-  mtags = {}
-  for stream in streams:
-    metric, tags = stream.metric, stream.tags
-    mkeys = random.sample(tags.keys(), random.randint(1,min(len(tags.keys()), 3)))
-    mtags = dict(zip(mkeys, [tags[k] for k in mkeys]))
-    metrics.append({
-      'tags': mtags,
-      'name': metric
-      })
-  return query
+    # pick some streams to match
+    streams = random.sample(WRITERS, random.randint(1, min(len(WRITERS), 3)))
+
+    # for each stream pick some tags that will match
+    mtags = {}
+    for stream in streams:
+        metric, tags = stream.metric, stream.tags
+        mkeys = random.sample(tags.keys(), random.randint(1, min(len(tags.keys()), 3)))
+        mtags = dict(zip(mkeys, [tags[k] for k in mkeys]))
+        metrics.append({
+            'tags': mtags,
+            'name': metric
+        })
+    return query
+
 
 def plot():
-  global LAST_RESPONSE
-  results = LAST_RESPONSE[2]['queries']
+    global LAST_RESPONSE
+    results = LAST_RESPONSE[2]['queries']
 
-  for result in results:
-    for qr in  result['results']:
-      points = sorted(qr['values'])  # TODO: should be sorted! (find bug)
-      metric = qr['name']
-      tags = qr['tags']
+    for result in results:
+        for qr in result['results']:
+            points = sorted(qr['values'])  # TODO: should be sorted! (find bug)
+            metric = qr['name']
+            tags = qr['tags']
 
-      _plot(points, metric, tags)
+            _plot(points, metric, tags)
+
 
 def _assign_colors(writers):
-  # club by metric 
-  by_metric = {}
-  for writer in writers:
-    metric = writer.metric
-    if not metric in by_metric:
-      by_metric[metric] = []
-    by_metric[writer.metric].append(writer)
+    # club by metric
+    by_metric = {}
+    for writer in writers:
+        metric = writer.metric
+        if not metric in by_metric:
+            by_metric[metric] = []
+        by_metric[writer.metric].append(writer)
 
-  for metric, metric_writers in by_metric.items():
-    # don't use super-light colors (start at offset of 3)
-    grad = np.linspace(0, 1, len(metric_writers) + 3)  
-    cmap = all_metrics[metric]['color_map']
-    for value, writer in zip(grad[3:], metric_writers):
-      writer.tags['color'] = _str_from_color(cmap, value)
-    
+    for metric, metric_writers in by_metric.items():
+        # don't use super-light colors (start at offset of 3)
+        grad = np.linspace(0, 1, len(metric_writers) + 3)
+        cmap = all_metrics[metric]['color_map']
+        for value, writer in zip(grad[3:], metric_writers):
+            writer.tags['color'] = _str_from_color(cmap, value)
+
+
 def _mod_query(query, which):
-  global LAST_QUERY, AGGREGATOR, DOWNSAMPLER
-  if which == 'aggregate':
-    transform = AGGREGATOR
-  if which == 'downsample':
-    transform = DOWNSAMPLER
-  if not query and not LAST_QUERY: return
-  if not query:
-    query = LAST_QUERY
-  ret = deepcopy(query)
-  for metric in ret['metrics']:
-    if not transform:
-      if which in metric:
-        del metric[which]
-    else:
-      metric[which] = transform
-  return ret
+    global LAST_QUERY, AGGREGATOR, DOWNSAMPLER
+    if which == 'aggregate':
+        transform = AGGREGATOR
+    if which == 'downsample':
+        transform = DOWNSAMPLER
+    if not query and not LAST_QUERY: return
+    if not query:
+        query = LAST_QUERY
+    ret = deepcopy(query)
+    for metric in ret['metrics']:
+        if not transform:
+            if which in metric:
+                del metric[which]
+        else:
+            metric[which] = transform
+    return ret
+
 
 def _color_from_tagval(tagval):
-  if type(tagval) is list: 
-    value = np.mean([float(s.split('_')[1]) for s in tagval])
-    cmap, _ = tagval[0].split('_') 
-  else:
-    cmap, value = tagval.split('_') 
-  cmap = plt.get_cmap(cmap)
-  return cmap(float(value))
+    if type(tagval) is list:
+        value = np.mean([float(s.split('_')[1]) for s in tagval])
+        cmap, _ = tagval[0].split('_')
+    else:
+        cmap, value = tagval.split('_')
+    cmap = plt.get_cmap(cmap)
+    return cmap(float(value))
+
 
 def _str_from_color(cmap, value):
-  return '_'.join(map(str, [cmap, value]))
+    return '_'.join(map(str, [cmap, value]))
+
 
 def _plot(points, metric, tags):
-  desc = all_metrics[metric]
+    desc = all_metrics[metric]
 
-  times, values = [datetime.fromtimestamp(p[0]/1000.) for p in points], \
-    [p[1] for p in points]
+    times, values = [datetime.fromtimestamp(p[0] / 1000.) for p in points], \
+                    [p[1] for p in points]
 
-  fig, ax = plt.subplots(1)
-  ax.plot(times, values, color=_color_from_tagval(tags['color']), marker='x')
-  fig.autofmt_xdate()
-  print tags
-  plt.title(desc['title'])
-  plt.xlabel('time')
-  plt.ylabel('%s (%s)' % (desc['ylabel'], desc['units']))
-  plt.show()
+    fig, ax = plt.subplots(1)
+    ax.plot(times, values, color=_color_from_tagval(tags['color']), marker='x')
+    fig.autofmt_xdate()
+    print tags
+    plt.title(desc['title'])
+    plt.xlabel('time')
+    plt.ylabel('%s (%s)' % (desc['ylabel'], desc['units']))
+    plt.show()
+
 
 def _find_writer(metric, tags):
-  global WRITERS
-  return filter(lambda w: w.tags == tags and w.metric == metric, WRITERS)[0]
+    global WRITERS
+    return filter(lambda w: w.tags == tags and w.metric == metric, WRITERS)[0]
 
 
 if __name__ == '__main__':
-  import IPython
-  ip = IPython.get_ipython()
+    import IPython
 
-  ip.autocall = 2
-  ip.interact()
+    ip = IPython.get_ipython()
+
+    ip.autocall = 2
+    ip.interact()
