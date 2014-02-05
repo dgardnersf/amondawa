@@ -24,182 +24,195 @@
 Utility classes - string manipulation, key <-> string conversion etc.
 """
 
-from amondawa import config
 from boto.dynamodb.types import get_dynamodb_type, is_str, is_num
 from decimal import Decimal
 from flask import json
-from repoze.lru import lru_cache
-import hashlib, time
+from amondawa import config
+import hashlib
+import time
 
 MAGIC = '0xCAFEBABE'
 
-config = config.get()
-
-COLUMN_HEIGHT = config.STORE_COLUMN_HEIGHT
+COLUMN_HEIGHT = config.get().STORE_COLUMN_HEIGHT
 
 def to_dynamo_compat_type(value):
-  try:
-    if is_num(value):
-      value = Decimal(str(value))
-    elif type(value) in (list, tuple):
-      value = set(value)
-    elif type(value) is dict:
-      value = MAGIC + json.dumps(value)
-    dtype = get_dynamodb_type(value)
-    if dtype == 'NS':
-      value = set([Decimal(str(v)) for v in value])
-  except TypeError:
-    value = MAGIC + json.dumps(value)
-  return value
+    try:
+        if is_num(value):
+            value = Decimal(str(value))
+        elif type(value) in (list, tuple):
+            value = set(value)
+        elif type(value) is dict:
+            value = MAGIC + json.dumps(value)
+        dtype = get_dynamodb_type(value)
+        if dtype == 'NS':
+            value = set([Decimal(str(v)) for v in value])
+    except TypeError:
+        value = MAGIC + json.dumps(value)
+    return value
+
 
 def from_dynamo_compat_type(value):
-  if isinstance(value, (set, frozenset)):
-    value = list(value)
-  # TODO: figure out how to preserve the datatype and precision;
-  #         casting to float (from Decimal) is a hack
-  elif is_num(value):
-    value = float(value)
-  elif is_str(value) and value.startswith(MAGIC):
-    value = json.loads(value[len(MAGIC):])
-  return value
+    if isinstance(value, (set, frozenset)):
+        value = list(value)
+    # TODO: figure out how to preserve the datatype and precision;
+    #         casting to float (from Decimal) is a hack
+    elif is_num(value):
+        value = float(value)
+    elif is_str(value) and value.startswith(MAGIC):
+        value = json.loads(value[len(MAGIC):])
+    return value
+
 
 def now():
-  """Current time in epoch millis.
-  """
-  return int(round(time.time()*1000))
+    """Current time in epoch millis.
+    """
+    return int(round(time.time() * 1000))
+
 
 def base_time(timestamp):
-  """Given absolute time in epoch milliseconds, calculate base time for
+    """Given absolute time in epoch milliseconds, calculate base time for
      configured COLUMN_HEIGHT.
-  """
-  return timestamp - timestamp % COLUMN_HEIGHT
+    """
+    return timestamp - timestamp % COLUMN_HEIGHT
+
 
 def offset_time(timestamp):
-  """Given absolute time in epoch milliseconds, calculate offset time for
+    """Given absolute time in epoch milliseconds, calculate offset time for
      configured COLUMN_HEIGHT.
-  """
-  return timestamp % COLUMN_HEIGHT
+    """
+    return timestamp % COLUMN_HEIGHT
+
 
 def to_millis(dt_string):
-  """Convert ASCII timestamp to epoch milliseconds.
-  """
-  return int(1000*time.mktime(time.strptime(dt_string)))
+    """Convert ASCII timestamp to epoch milliseconds.
+    """
+    return int(1000 * time.mktime(time.strptime(dt_string)))
+
 
 def index_hash_key(domain, metric):
-  """Create index hash key.
-  """
-  return '|'.join([domain, metric])
+    """Create index hash key.
+    """
+    return '|'.join([domain, metric])
+
 
 def index_range_key(timestamp, tags):
-  """Create index range key.
-  """
-  return '|'.join(map(str, [base_time(timestamp), tag_string(tags)]))
+    """Create index range key.
+    """
+    return '|'.join(map(str, [base_time(timestamp), tag_string(tags)]))
+
 
 def data_points_key(domain, metric, timestamp, tags):
-  """Create datapoints hash key data.
-  """
-  return '|'.join([index_hash_key(domain, metric), index_range_key(timestamp,
-    tags)])
+    """Create datapoints hash key data.
+    """
+    return '|'.join([index_hash_key(domain, metric), index_range_key(timestamp,
+                                                                     tags)])
+
 
 def hdata_points_key(domain, metric, timestamp, tags):
-  """Create datapoints hash key.
-  """
-  return hdata_points_key_str(data_points_key(domain, metric, timestamp, tags))
+    """Create datapoints hash key.
+    """
+    return hdata_points_key_str(data_points_key(domain, metric, timestamp, tags))
 
 #@lru_cache(500)
 def hdata_points_key_str(key_str):
-  return hashlib.sha1(key_str).hexdigest()
+    return hashlib.sha1(key_str).hexdigest()
+
 
 def tag_string(tags):
-  """Create tag string from dict.
-  """
-  return ';'.join(map (lambda item: '='.join(item), sorted(tags.items())))
+    """Create tag string from dict.
+    """
+    return ';'.join(map(lambda item: '='.join(item), sorted(tags.items())))
+
 
 def tags_from_string(tag_string):
-  """Create dict string from tag string.
-  """
-  return dict(map(lambda kv: kv.split('='), tag_string.split(';')))
+    """Create dict string from tag string.
+    """
+    return dict(map(lambda kv: kv.split('='), tag_string.split(';')))
+
 
 def offset_range(index_key, start_time, end_time):
-  """Given absolute start and end time of query, calculate the start and
+    """Given absolute start and end time of query, calculate the start and
      end index for a given bucket (index key).
-  """
-  start, end = 0, COLUMN_HEIGHT
-  tbase = index_key.get_tbase()
-  if tbase == base_time(start_time): start = offset_time(start_time)
-  if tbase == base_time(end_time): end = offset_time(end_time)
-  return start, end
+    """
+    start, end = 0, COLUMN_HEIGHT
+    tbase = index_key.get_tbase()
+    if tbase == base_time(start_time): start = offset_time(start_time)
+    if tbase == base_time(end_time): end = offset_time(end_time)
+    return start, end
+
 
 def to_multi_map(dicts):
-  """convert dicts [{k0:v0}, {k0:v1, k1:v2}] to multi_dict
+    """convert dicts [{k0:v0}, {k0:v1, k1:v2}] to multi_dict
      {k0: set({v0, v1}), k1: set({v2})}
-  """
-  # get unique tag names
-  keys = set()
-  map(keys.update, dicts)
-  # create a results dictionary
-  ret = dict([[k, set()] for k in keys])
-  map(lambda d: map(lambda k: ret[k].add(d[k]), d.keys()), dicts)
-  for k in ret: ret[k] = [v for v in ret[k]]
-  return ret
+    """
+    # get unique tag names
+    keys = set()
+    map(keys.update, dicts)
+    # create a results dictionary
+    ret = dict([[k, set()] for k in keys])
+    map(lambda d: map(lambda k: ret[k].add(d[k]), d.keys()), dicts)
+    for k in ret: ret[k] = [v for v in ret[k]]
+    return ret
+
 
 class IndexKey(object):
-  """Wrapper class for parsing and converting index key components.
-  """
-  def __init__(self, key):
-    self.key = key
-    self.tbase = self.domain = self.tag_string = self.metric = None
-    self.tags = None
-
-  def get_tags(self):
-    """Parses the tags component of index key into a dict.
+    """Wrapper class for parsing and converting index key components.
     """
-    if not self.tags:
-      self.tags = tags_from_string(self.get_tag_string())
-    return self.tags
 
-  def get_tag_string(self):
-    """Returns the tags component of index key.
-    """
-    self.__init()
-    return self.tag_string
+    def __init__(self, key):
+        self.key = key
+        self.tbase = self.domain = self.tag_string = self.metric = None
+        self.tags = None
 
-  def get_tbase(self):
-    """Returns the base time component of index key as int.
-    """
-    self.__init()
-    return self.tbase
+    def get_tags(self):
+        """Parses the tags component of index key into a dict.
+        """
+        if not self.tags:
+            self.tags = tags_from_string(self.get_tag_string())
+        return self.tags
 
-  def get_domain(self):
-    """Returns the domain component of index key.
-    """
-    self.__init()
-    return self.domain
+    def get_tag_string(self):
+        """Returns the tags component of index key.
+        """
+        self.__init()
+        return self.tag_string
 
-  def get_metric(self):
-    """Returns the metric component of index key.
-    """
-    self.__init()
-    return self.metric
+    def get_tbase(self):
+        """Returns the base time component of index key as int.
+        """
+        self.__init()
+        return self.tbase
 
-  def __init(self):
-    """Lazy initialization (parsing) of index key.
-    """
-    if self.tbase == None:
-      self.tbase, self.tag_string = self.key['tbase_tags'].split('|')
-      self.tbase = int(self.tbase)
-      self.domain, self.metric = self.key['domain_metric'].split('|')
+    def get_domain(self):
+        """Returns the domain component of index key.
+        """
+        self.__init()
+        return self.domain
 
-  def has_tags(self, tags):
-    """return True if the offered dict's kv pairs are present in this key's tags.
-    """
-    key_tags = self.get_tags()
-    return len ([k for k in tags if k in key_tags and key_tags[k] in tags[k]]) == len(tags)
+    def get_metric(self):
+        """Returns the metric component of index key.
+        """
+        self.__init()
+        return self.metric
 
-  def to_data_points_key(self):
-    """return the datapoints hash key representation of this index key.
-    """
-    self.__init()
-    return hdata_points_key(self.domain, self.metric, self.tbase,
-        self.get_tags())
+    def __init(self):
+        """Lazy initialization (parsing) of index key.
+        """
+        if self.tbase is None:
+            self.tbase, self.tag_string = self.key['tbase_tags'].split('|')
+            self.tbase = int(self.tbase)
+            self.domain, self.metric = self.key['domain_metric'].split('|')
+
+    def has_tags(self, tags):
+        """return True if the offered dict's kv pairs are present in this key's tags.
+        """
+        key_tags = self.get_tags()
+        return len([k for k in tags if k in key_tags and key_tags[k] in tags[k]]) == len(tags)
+
+    def to_data_points_key(self):
+        """return the datapoints hash key representation of this index key.
+        """
+        self.__init()
+        return hdata_points_key(self.domain, self.metric, self.tbase,
+                                self.get_tags())
 

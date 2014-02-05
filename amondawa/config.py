@@ -20,55 +20,80 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from boto.dynamodb2.fields import HashKey, RangeKey
+from boto.dynamodb2.fields import HashKey
 from boto.dynamodb2.table import Table
-from boto.dynamodb2.types import *
 
-import amondawa, os, sys, time
+import amondawa
+import os
+import sys
+import time
 
 MAX_WAIT = 120
 
 REGION = os.environ.get('AMDW_REGION', 'us-west-2')
+TABLE_SPACE = os.environ.get('AMDW_TABLE_SPACE', 'amdw')
 
 connection = amondawa.connect(REGION)
 
-config_table = Table('amdw_config', connection=connection)
+def table_name(table):
+    """Return the name of the table give it's base name.
+
+    @param table: the base name of the table.
+    @return: the full name of the table
+    """
+    return '%s_%s' % (TABLE_SPACE, table)
+
+
+def table_names(tables):
+    """Given a list of table base names, return a dictionary
+       mapping from base name to full name.
+
+    @param tables: a list of base table names.
+    @return: a dictionary mapping from base bame to full name.
+    """
+    return dict(map(lambda name: (name, table_name(name)), tables))
+
+config_table = Table(table_name('config'), connection=connection)
 desc = None
 try:
-  desc = config_table.describe()
+    desc = config_table.describe()
 except:
-  config_table = Table.create('amdw_config',
-        schema = [ HashKey('name') ],
-        throughput = { 'read': 1, 'write': 1 }, connection=connection)
+    config_table = Table.create(table_name('config'),
+                                schema=[HashKey('name')],
+                                throughput={'read': 1, 'write': 1}, connection=connection)
 
 desc = config_table.describe()
 while MAX_WAIT and desc['Table']['TableStatus'] != 'ACTIVE':
-  MAX_WAIT -= 1
-  time.sleep(1)
-  desc = config_table.describe()
+    MAX_WAIT -= 1
+    time.sleep(1)
+    desc = config_table.describe()
 
 if desc['Table']['TableStatus'] != 'ACTIVE':
-  print 'error accessing amdw_config table in region', region
-  sys.exit(1)
+    print 'error accessing', table_name('config'), 'table in region', REGION
+    sys.exit(1)
 
 config = None
 
-class configuration(object):
-  def __init__(self, config_table):
-    vars(self).update(dict((item['name'].upper(), item['value']) \
-        for item in config_table.scan()))
+
+class Configuration(object):
+    def __init__(self, config_table):
+        vars(self).update(dict((item['name'].upper(), item['value']) \
+                               for item in config_table.scan()))
+
 
 def get():
-  return config
+    return config
+
 
 def refresh():
-  global config
-  config = configuration(config_table)
-  return config
+    global config
+    config = Configuration(config_table)
+    return config
+
 
 def write(configuration):
-  for name, value in configuration.items():
-    config_table.put_item({'name': name, 'value': value}, overwrite=True)
+    for name, value in configuration.items():
+        config_table.put_item({'name': name, 'value': value}, overwrite=True)
 
 
 refresh()
