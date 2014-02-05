@@ -33,9 +33,12 @@ from boto.dynamodb2.types import *
 import amondawa, os, sys, argparse, random, os, base64, time
 
 ACTIONS = ('delete_table', 'create_table', 'add', 'delete', 'list', 'deactivate', \
-    'activate', 'add_perms', 'delete_perms', 'set_perms')
+           'activate', 'add_perms', 'delete_perms', 'set_perms')
 ANY_DOMAIN = '*'
 MAX_WAIT = 120
+
+REGION = config.REGION
+TABLE_NAME = config.table_name('credentials')
 
 parser = argparse.ArgumentParser()
 
@@ -45,231 +48,239 @@ parser.add_argument('--key', help='access key')
 
 r = random.Random()
 
+
 def generate_access_key_id():
-  return base64.encodestring(os.urandom(15)).upper()\
-     .replace('+', '0')\
-     .replace('/', '9')\
-     .strip()
+    return base64.encodestring(os.urandom(15)).upper() \
+        .replace('+', '0') \
+        .replace('/', '9') \
+        .strip()
+
 
 def generate_secret_access_key():
-  return base64.encodestring(os.urandom(30)).strip()
+    return base64.encodestring(os.urandom(30)).strip()
+
 
 def generate_key():
-  return generate_access_key_id(), generate_secret_access_key()
+    return generate_access_key_id(), generate_secret_access_key()
+
 
 def print_item(item):
-  # do not print secret_access_key
-  print 'access key:', item['access_key_id'], 'permissions:', item['permissions'], 'state:', item['state']
+    # do not print secret_access_key
+    print 'access key:', item['access_key_id'], 'permissions:', item['permissions'], 'state:', item['state']
+
 
 def yn(q):
-  sys.stdout.write(q)
-  sys.stdout.write('Y/[N]')
-  if sys.stdin.readline() != 'Y\n':
-    print 'Aborted.'
-    sys.exit(1)
+    sys.stdout.write(q)
+    sys.stdout.write('Y/[N]')
+    if sys.stdin.readline() != 'Y\n':
+        print 'Aborted.'
+        sys.exit(1)
+
 
 def usage(details=None, list_actions=False):
-  print
-  print
-  if details:
-    print ">> " + details
     print
-  parser.print_usage()
-  if list_actions:
-    print '   allowed  actions:\n', pformat(ACTIONS)
     print
-  print
-  sys.exit(1)
+    if details:
+        print ">> " + details
+        print
+    parser.print_usage()
+    if list_actions:
+        print '   allowed  actions:\n', pformat(ACTIONS)
+        print
+    print
+    sys.exit(1)
+
 
 def delete_table(connection):
-  credentials_table = Table('amdw_credentials', connection=connection)
-  desc = credentials_table.describe()
-  status = desc['Table']['TableStatus']
-  if status == 'ACTIVE':
-    credentials_table.delete()
-  else:
-    print 'Credential table exists, but is not ACTIVE (%s). Try again later.' % status
-    sys.exit(1)
-    
-def get_table(connection, create=False):
-  global MAX_WAIT
-  credentials_table = Table('amdw_credentials', connection=connection)
-  desc = None
-  bound = False
-  try:
+    credentials_table = Table(TABLE_NAME, connection=connection)
     desc = credentials_table.describe()
-    bound = True
-  except:
-    if not create:
-      yn('Credential table (amdw_credentials) not found in region %s. Create it?' % config.REGION)
-    credentials_table = Table.create('amdw_credentials',
-          schema = [ HashKey('access_key_id') ],
-          throughput = { 'read': 1, 'write': 1 }, connection=connection)
+    status = desc['Table']['TableStatus']
+    if status == 'ACTIVE':
+        credentials_table.delete()
+    else:
+        print 'Credential table exists, but is not ACTIVE (%s). Try again later.' % status
+        sys.exit(1)
 
 
-  if create and bound:
-   print 'Credential table already exists'
-   sys.exit(1)
+def get_table(connection, create=False):
+    global MAX_WAIT
+    credentials_table = Table(TABLE_NAME, connection=connection)
+    desc = None
+    bound = False
+    try:
+        desc = credentials_table.describe()
+        bound = True
+    except:
+        if not create:
+            yn("Credential table ('%s') not found in region %s. Create it?" % (TABLE_NAME, REGION))
+        credentials_table = Table.create(TABLE_NAME,
+                                         schema=[HashKey('access_key_id')],
+                                         throughput={'read': 1, 'write': 1}, connection=connection)
 
-  desc = credentials_table.describe()
-  if desc['Table']['TableStatus'] != 'ACTIVE':
-    print 'waiting for amdw_credentials table to be ACTIVE...'
-    while MAX_WAIT and desc['Table']['TableStatus'] != 'ACTIVE':
-      MAX_WAIT -= 1
-      time.sleep(1)
-      desc = credentials_table.describe()
+    if create and bound:
+        print 'Credential table already exists'
+        sys.exit(1)
 
-  if desc['Table']['TableStatus'] != 'ACTIVE':
-    print 'error accessing amdw_credentials table in region', config.REGION
-    sys.exit(1)
+    desc = credentials_table.describe()
+    if desc['Table']['TableStatus'] != 'ACTIVE':
+        print 'waiting for %s table to be ACTIVE...' % TABLE_NAME
+        while MAX_WAIT and desc['Table']['TableStatus'] != 'ACTIVE':
+            MAX_WAIT -= 1
+            time.sleep(1)
+            desc = credentials_table.describe()
 
-  return credentials_table
+    if desc['Table']['TableStatus'] != 'ACTIVE':
+        print 'error accessing %s table in region %s' % (TABLE_NAME, REGION)
+        sys.exit(1)
+
+    return credentials_table
+
 
 def valid_permissions(action, permissions):
-  for p in permissions:
-    if len(p.split(':')) != 2:
-      return False
-    domain, perm = p.split(':')
-    if action != 'delete_perms' and domain == ANY_DOMAIN:
-      yn("WARNING: granting access to '%s' will allow access to any domain. Continue?" % domain)
-    if perm not in ('r', 'w', 'rw'):
-      return False
-  return True
+    for p in permissions:
+        if len(p.split(':')) != 2:
+            return False
+        domain, perm = p.split(':')
+        if action != 'delete_perms' and domain == ANY_DOMAIN:
+            yn("WARNING: granting access to '%s' will allow access to any domain. Continue?" % domain)
+        if perm not in ('r', 'w', 'rw'):
+            return False
+    return True
+
 
 def to_perm_set(permissions):
-  ret = set()
-  for p in permissions:
-    domain, perm = p.split(':')
-    for rw in list(perm):
-      ret.add(':'.join([domain, rw]))
-  return ret
- 
+    ret = set()
+    for p in permissions:
+        domain, perm = p.split(':')
+        for rw in list(perm):
+            ret.add(':'.join([domain, rw]))
+    return ret
+
 
 def get_key(connection, id, exit=True):
-  credentials_table = get_table(connection)
-  item = credentials_table.get_item(access_key_id=id)
-  if exit and not item:
-    print 'cannot find key %s in amdw_credentials table' % args['key']
-    sys.exit(1)
-  return item
+    credentials_table = get_table(connection)
+    item = credentials_table.get_item(access_key_id=id)
+    if exit and not item:
+        print 'cannot find key %s in %s table' % (args['key'], TABLE_NAME)
+        sys.exit(1)
+    return item
 
 
 def edit_perms(action, permissions, key):
-  if action == 'set_perms':
-    key['permissions'] = permissions
-  elif action == 'add_perms':
-    key['permissions'].update(permissions)
-  elif action == 'delete_perms':
-    for p in permissions:
-      key['permissions'].discard(p)
+    if action == 'set_perms':
+        key['permissions'] = permissions
+    elif action == 'add_perms':
+        key['permissions'].update(permissions)
+    elif action == 'delete_perms':
+        for p in permissions:
+            key['permissions'].discard(p)
 
-  if not key['permissions']:
-    print 'permissions cannot be empty'
-    print_item(key)
-    sys.exit(1)
+    if not key['permissions']:
+        print 'permissions cannot be empty'
+        print_item(key)
+        sys.exit(1)
 
-  key.save(overwrite=True)
-  return key
-  
+    key.save(overwrite=True)
+    return key
+
 
 args = vars(parser.parse_args())
 action = args['action']
 
 if action not in ACTIONS:
-  usage('Unknown action: ' + action, list_actions=True)
+    usage('Unknown action: ' + action, list_actions=True)
 
-
-print 'configuring amdw_credentials table in region', config.REGION
+print 'configuring %s table in region %s' % (TABLE_NAME, REGION)
 
 if action == 'delete_table':
-  yn('Delelete amdw_credentials table in region %s?' % config.REGION)
-  connection = amondawa.connect(config.REGION)
-  delete_table(connection)
+    yn('Delelete %s table in region %s?' % (TABLE_NAME, REGION))
+    connection = amondawa.connect(config.REGION)
+    delete_table(connection)
 elif action == 'create_table':
-  yn('Create amdw_credentials table in region %s?' % config.REGION)
-  connection = amondawa.connect(config.REGION)
-  get_table(connection, create=True)
-  print 'amdw_credentials table created.'
+    yn('Create %s table in region %s?' % (TABLE_NAME, REGION))
+    connection = amondawa.connect(REGION)
+    get_table(connection, create=True)
+    print '%s table created.' % TABLE_NAME
 elif action == 'add':
-  if not args['permission']:
-    usage("You must specify initial permissions for the new access key.")
-  if not valid_permissions(action, args['permission']):
-    usage("Permissions %s not valid. Permissions must be one of " + 
-        "'domain:r', 'domain:w', or 'domain:rw'." % args['permission'])
-  permissions = to_perm_set(args['permission'])
-  yn("Add new access key with initial permissions %s" % permissions + '?')
+    if not args['permission']:
+        usage("You must specify initial permissions for the new access key.")
+    if not valid_permissions(action, args['permission']):
+        usage("Permissions %s not valid. Permissions must be one of " +
+              "'domain:r', 'domain:w', or 'domain:rw'." % args['permission'])
+    permissions = to_perm_set(args['permission'])
+    yn("Add new access key with initial permissions %s" % permissions + '?')
 
-  connection = amondawa.connect(config.REGION)
-  credentials_table = get_table(connection)
-  access_key_id, secret_access_key = generate_key()
-  Item(credentials_table, 
-        data={
-          'access_key_id': access_key_id,
-          'secret_access_key': secret_access_key,
-          'permissions': permissions,
-          'state': 'ACTIVE'
-        }).save()
+    connection = amondawa.connect(REGION)
+    credentials_table = get_table(connection)
+    access_key_id, secret_access_key = generate_key()
+    Item(credentials_table,
+         data={
+             'access_key_id': access_key_id,
+             'secret_access_key': secret_access_key,
+             'permissions': permissions,
+             'state': 'ACTIVE'
+         }).save()
 
-  print 'Added access key', access_key_id
+    print 'Added access key', access_key_id
 elif action == 'delete':
-  if not args['key']:
-    usage('You must specify an access key to delete.')
-  yn("Delete access key: '" + args['key'] + "'?")
+    if not args['key']:
+        usage('You must specify an access key to delete.')
+    yn("Delete access key: '" + args['key'] + "'?")
 
-  connection = amondawa.connect(config.REGION)
-  get_key(connection, args['key']).delete()
+    connection = amondawa.connect(REGION)
+    get_key(connection, args['key']).delete()
 
-  print 'Key %s deleted.' % args['key']
+    print 'Key %s deleted.' % args['key']
 elif action == 'list':
-  connection = amondawa.connect(config.REGION)
-  credentials_table = get_table(connection)
-  for item in credentials_table.scan():
-    print_item(item)
-  print 'done.'
+    connection = amondawa.connect(REGION)
+    credentials_table = get_table(connection)
+    for item in credentials_table.scan():
+        print_item(item)
+    print 'done.'
 
 elif action == 'activate':
-  if not args['key']:
-    usage('You must specify an access key to activate.')
-  yn("Activate access key: '" + args['key'] + "'?")
+    if not args['key']:
+        usage('You must specify an access key to activate.')
+    yn("Activate access key: '" + args['key'] + "'?")
 
-  connection = amondawa.connect(config.REGION)
-  key = get_key(connection, args['key'])
-  if key['state'] != 'ACTIVE':
-    key['state'] = 'ACTIVE'
-    key.save(overwrite=True)
-    print 'Set %s key state to ACTIVE' % args['key']
-  else:
-    print 'Key %s state already ACTIVE' % args['key']
+    connection = amondawa.connect(REGION)
+    key = get_key(connection, args['key'])
+    if key['state'] != 'ACTIVE':
+        key['state'] = 'ACTIVE'
+        key.save(overwrite=True)
+        print 'Set %s key state to ACTIVE' % args['key']
+    else:
+        print 'Key %s state already ACTIVE' % args['key']
 
 elif action == 'deactivate':
-  if not args['key']:
-    usage('You must specify an access key to deactivate.')
-  yn("Deactivate access key: '" + args['key'] + "'?")
+    if not args['key']:
+        usage('You must specify an access key to deactivate.')
+    yn("Deactivate access key: '" + args['key'] + "'?")
 
-  connection = amondawa.connect(config.REGION)
-  key = get_key(connection, args['key'])
-  if key['state'] != 'INACTIVE':
-    key['state'] = 'INACTIVE'
-    key.save(overwrite=True)
-    print 'Set %s key state to INACTIVE' % args['key']
-  else:
-    print 'Key %s state already INACTIVE' % args['key']
+    connection = amondawa.connect(REGION)
+    key = get_key(connection, args['key'])
+    if key['state'] != 'INACTIVE':
+        key['state'] = 'INACTIVE'
+        key.save(overwrite=True)
+        print 'Set %s key state to INACTIVE' % args['key']
+    else:
+        print 'Key %s state already INACTIVE' % args['key']
 
 elif action == 'add_perms' or action == 'delete_perms' or action == 'set_perms':
-  if not args['key']:
-    usage('You must specify an access key to change permissions for.')
-  if not args['permission']:
-    usage("You must specify the permissions to change for access key: '" + args['key'] + "'.")
-  if not valid_permissions(action, args['permission']):
-    usage("Permissions %s not valid. Permissions must be one of " + 
-        "'domain:r', 'domain:w', or 'domain:rw'." % args['permission'])
-  permissions = to_perm_set(args['permission'])
-  yn("Change access key '" + args['key'] + "' permissions: %s" % permissions)
+    if not args['key']:
+        usage('You must specify an access key to change permissions for.')
+    if not args['permission']:
+        usage("You must specify the permissions to change for access key: '" + args['key'] + "'.")
+    if not valid_permissions(action, args['permission']):
+        usage("Permissions %s not valid. Permissions must be one of " +
+              "'domain:r', 'domain:w', or 'domain:rw'." % args['permission'])
+    permissions = to_perm_set(args['permission'])
+    yn("Change access key '" + args['key'] + "' permissions: %s" % permissions)
 
-  connection = amondawa.connect(config.REGION)
-  key = get_key(connection, args['key'])
-  key = edit_perms(action, permissions, key)
-  print_item(key)
-  print 'Permissions set.'
+    connection = amondawa.connect(REGION)
+    key = get_key(connection, args['key'])
+    key = edit_perms(action, permissions, key)
+    print_item(key)
+    print 'Permissions set.'
 
 
