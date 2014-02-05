@@ -20,10 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+
 class AmondawaError(Exception):
-  pass
+    pass
+
 
 class WriteTooSkewedError(AmondawaError):
-  """Attempt to write to archived table or table outside of buffered history.
-  """
-  pass
+    """Attempt to write to archived table or table outside of buffered history.
+    """
+    pass

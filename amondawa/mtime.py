@@ -27,12 +27,14 @@ import time
 
 debug = False  # TODO make configurable debug timing
 
+
 def timeit(c):
-  def wrapper(*args, **kwargs):
-    if not debug:
-      return c(*args, **kwargs)
-    s = time.time()
-    ret = c(*args, **kwargs)
-    print 'timeit:', c.__module__, '.', c, time.time() - s 
-    return ret
-  return wrapper
+    def wrapper(*args, **kwargs):
+        if not debug:
+            return c(*args, **kwargs)
+        s = time.time()
+        ret = c(*args, **kwargs)
+        print 'timeit:', c.__module__, '.', c, time.time() - s
+        return ret
+
+    return wrapper

@@ -28,24 +28,23 @@ from amondawa import config
 import sys, pprint
 
 if len(sys.argv) < 2:
-  print 'usage:\n  %s <configfile.py>' % sys.argv[0]
-  sys.exit(1)
-
+    print 'usage:\n  %s <configfile.py>' % sys.argv[0]
+    sys.exit(1)
 
 try:
-  execfile(sys.argv[1])
-  if 'configuration' not in locals(): raise ValueError('')
+    execfile(sys.argv[1])
+    if 'configuration' not in locals(): raise ValueError('')
 except:
-  print 'error reading configuration from:', sys.argv[1]
-  sys.exit(1)
+    print 'error reading configuration from:', sys.argv[1]
+    sys.exit(1)
 
 pprint.pprint(configuration)
 print 'overwrite Amondawa %s region configuration using above configuration? Y/[N]:' % config.REGION
-if sys.stdin.readline() !=  'Y\n':
-  print 'Aborted: (choose "Y" to confirm).'
+if sys.stdin.readline() != 'Y\n':
+    print 'Aborted: (choose "Y" to confirm).'
 else:
-  config.write(configuration)
-  print 'Configuration written.'
+    config.write(configuration)
+    print 'Configuration written.'
 
 
 

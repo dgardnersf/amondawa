@@ -33,126 +33,130 @@ Sample auth header:
       Signature=d492be57cc721e09eee2f4fdb6a998e8473a485a3fe770bc41d9793c7c99c277
 """
 
-from boto.auth import HmacAuthV4Handler
-from boto.provider import Provider
-from boto.pyami.config import Config
-
-from hashlib import sha1 as sha
-from hashlib import sha256 as sha256
-import hmac, urllib, posixpath, datetime, amondawa
-
 from amondawa import config
 from amondawa.schema import Schema
-import traceback
+from hashlib import sha256 as sha256
+
+import amondawa
+import boto
+import datetime
+import hmac
+import posixpath
+import urllib
 
 # TODO: make configurable? maybe more secure hardcoded
-MAX_SKEW = 15*60          # 15 minutes  
+MAX_SKEW = 15 * 60          # 15 minutes
 
 schema = Schema(amondawa.connect(config.REGION))
 # scan the credentials table  TODO: periodically scan 
 amdw_credentials = schema.get_credentials()
 
+
 def authorized(request, domain, op):
-  """Compute AWS4-HMAC-SHA256 authentication signature and return True if
+    """Compute AWS4-HMAC-SHA256 authentication signature and return True if
      signature matches.  Return False if signature does not match or request 
      has missing or stale header information.
 
      Performs HMAC authentication and domain:operation authorization.
-  """
-  # TODO: really need debug logging here
-  # TODO: think more about order (e.g. permissions authz before 
-  #            or after authn)
+    """
+    # TODO: really need debug logging here
+    # TODO: think more about order (e.g. permissions authz before
+    #            or after authn)
 
-  # werkzeug Headers class - keys are case insensitive
-  auth_header, host_header, date_header = \
-      map(request.headers.get, ('authorization', 'host', 'x-amz-date'))
+    # werkzeug Headers class - keys are case insensitive
+    auth_header, host_header, date_header = \
+        map(request.headers.get, ('authorization', 'host', 'x-amz-date'))
 
-  # missing Authorization, Host or Date header
-  if None in (auth_header, host_header, date_header):
-    return False
+    # missing Authorization, Host or Date header
+    if None in (auth_header, host_header, date_header):
+        return False
 
-  # don't allow messages with older than MAX_SKEW date header
-  dt = datetime.datetime.utcnow() - datetime.datetime.strptime(date_header, '%Y%m%dT%H%M%SZ')
-  if abs(dt.total_seconds()) > MAX_SKEW:
-    return False
+    # don't allow messages with older than MAX_SKEW date header
+    dt = datetime.datetime.utcnow() - datetime.datetime.strptime(date_header, '%Y%m%dT%H%M%SZ')
+    if abs(dt.total_seconds()) > MAX_SKEW:
+        return False
 
-  # try to parse auth header
-  try:
-    _, parts = auth_header.split()
-    credentials, signed_headers, signature = parts.split(',')
-    _, credentials = credentials.split('=')
-    aws_access_key_id = credentials.split('/')[0]
-    record = amdw_credentials.get(aws_access_key_id)
-    if not record: return False
-    if record.state != 'ACTIVE': return False
-    aws_secret_access_key = record.secret_access_key
-  except:
-    # cannot find access_key_id or secret_access_key
-    return False
+    # try to parse auth header
+    try:
+        _, parts = auth_header.split()
+        credentials, signed_headers, signature = parts.split(',')
+        _, credentials = credentials.split('=')
+        aws_access_key_id = credentials.split('/')[0]
+        record = amdw_credentials.get(aws_access_key_id)
+        if not record:
+            return False
+        if record.state != 'ACTIVE': return False
+        aws_secret_access_key = record.secret_access_key
+    except:
+        # cannot find access_key_id or secret_access_key
+        return False
 
-  # check domain:operation permissions
-  if not check_access(domain, op, record.permissions):
-    return False
- 
-  headers = {}
-  for k in request.headers.keys(lower=True):
-    #   Authorization header must be recomputed
-    if not k in ('authorization'):
-      headers[k] = request.headers[k]
+    # check domain:operation permissions
+    if not check_access(domain, op, record.permissions):
+        return False
 
-  # This is a hack (uppercase date header name) to reuse the boto client for
-  # signature validation.  That class uses uppercase date header name.
-  headers['X-Amz-Date'] = headers['x-amz-date']
-  del headers['x-amz-date']
+    headers = {}
+    for k in request.headers.keys(lower=True):
+        #   Authorization header must be recomputed
+        if not k in ('authorization'):
+            headers[k] = request.headers[k]
 
-  host_port = host_header.split(':')
-  if len(host_port) == 1:
-    host, port = host_port[0], 80
-  elif len(host_port) == 2:
-    host, port = host_port
-  else:
-    return False
-  
-  #TODO: protocol (http/http(s)) must come from the request URI
-  #print auth_header
-  prequest = ProxyHTTPRequest(request.method, host, port, 
-      request.path, headers, protocol='http')    
+    # This is a hack (uppercase date header name) to reuse the boto client for
+    # signature validation.  That class uses uppercase date header name.
+    headers['X-Amz-Date'] = headers['x-amz-date']
+    del headers['x-amz-date']
 
-  auth_check_auth(prequest, aws_access_key_id, aws_secret_access_key)
-  # TODO: just compare signature (not whole header)
-  return auth_header == headers['Authorization']
+    host_port = host_header.split(':')
+    if len(host_port) == 1:
+        host, port = host_port[0], 80
+    elif len(host_port) == 2:
+        host, port = host_port
+    else:
+        return False
+
+    #TODO: protocol (http/http(s)) must come from the request URI
+    #print auth_header
+    prequest = ProxyHTTPRequest(request.method, host, port,
+                                request.path, headers, protocol='http')
+
+    auth_check_auth(prequest, aws_access_key_id, aws_secret_access_key)
+    # TODO: just compare signature (not whole header)
+    return auth_header == headers['Authorization']
 
 
 def check_access(domain, op, permissions):
-  """return True if the permissions allow access to the provided domain and
-     operation 
-  """
-  for p in permissions:
-    d, o = p.split(':')
-    if (d == '*' or d == domain) and o == op:
-      return True
-  return False
+    """return True if the permissions allow access to the provided domain and
+       operation
+    """
+    for p in permissions:
+        d, o = p.split(':')
+        if (d == '*' or d == domain) and o == op:
+            return True
+    return False
+
 
 class ProxyHTTPRequest(object):
-  """A class to make the rest of this code think it's operating on a 'real' request
-  """
-  def __init__(self, method, host, port, auth_path, headers, body='', params={}, protocol='http'):
-    self.protocol = protocol
-    self.host = host
-    self.port = port
-    self.method = method
-    self.auth_path = self.path = auth_path
-    self.params = params
-    self.body = body
-    self.headers = headers
+    """A class to make the rest of this code think it's operating on a 'real' request
+    """
+
+    def __init__(self, method, host, port, auth_path, headers, body='', params={}, protocol='http'):
+        self.protocol = protocol
+        self.host = host
+        self.port = port
+        self.method = method
+        self.auth_path = self.path = auth_path
+        self.params = params
+        self.body = body
+        self.headers = headers
+
 
 def auth_add_auth1(aws_access_key_id, aws_secret_access_key,
-    method, host, port, path, headers, protocol='http'):
-  """Client side: add auth header to headers (used by test client).
-  """
-  auth_add_auth(ProxyHTTPRequest(method, host, port, path, headers, protocol=protocol), 
-      aws_access_key_id, aws_secret_access_key)
-  return headers
+                   method, host, port, path, headers, protocol='http'):
+    """Client side: add auth header to headers (used by test client).
+    """
+    auth_add_auth(ProxyHTTPRequest(method, host, port, path, headers, protocol=protocol),
+                  aws_access_key_id, aws_secret_access_key)
+    return headers
 
 
 ######  modified boto code follows:
@@ -164,9 +168,9 @@ def auth_sign(key, msg, hex=False):
         sig = hmac.new(key, msg.encode('utf-8'), sha256).digest()
     return sig
 
+
 def auth_headers_to_sign(http_request, host):
-    """
-    Select the headers from the request that need to be included
+    """Select the headers from the request that need to be included
     in the StringToSign.
     """
     host_header_value = auth_host_header(host, http_request)
@@ -178,12 +182,14 @@ def auth_headers_to_sign(http_request, host):
             headers_to_sign[name] = value
     return headers_to_sign
 
+
 def auth_host_header(host, http_request):
     port = http_request.port
     secure = http_request.protocol == 'https'
     if ((port == 80 and not secure) or (port == 443 and secure)):
         return host
     return '%s:%s' % (host, port)
+
 
 def auth_query_string(http_request):
     parameter_names = sorted(http_request.params.keys())
@@ -193,6 +199,7 @@ def auth_query_string(http_request):
         pairs.append(urllib.quote(pname, safe='') + '=' +
                      urllib.quote(pval, safe='-_~'))
     return '&'.join(pairs)
+
 
 def auth_canonical_query_string(http_request):
     # POST requests pass parameters in through the
@@ -206,6 +213,7 @@ def auth_canonical_query_string(http_request):
                             urllib.quote(value, safe='-_.~')))
     return '&'.join(l)
 
+
 def auth_canonical_headers(headers_to_sign):
     """
     Return the headers that need to be included in the StringToSign
@@ -214,25 +222,28 @@ def auth_canonical_headers(headers_to_sign):
     them into a string, separated by newlines.
     """
     l = sorted(['%s:%s' % (n.lower().strip(),
-                ' '.join(headers_to_sign[n].strip().split()))
+                           ' '.join(headers_to_sign[n].strip().split()))
                 for n in headers_to_sign])
     return '\n'.join(l)
+
 
 def auth_signed_headers(headers_to_sign):
     l = ['%s' % n.lower().strip() for n in headers_to_sign]
     l = sorted(l)
     return ';'.join(l)
 
+
 def auth_canonical_uri(http_request):
     path = http_request.auth_path
     # Normalize the path
     # in windows normpath('/') will be '\\' so we chane it back to '/'
-    normalized = posixpath.normpath(path).replace('\\','/')
+    normalized = posixpath.normpath(path).replace('\\', '/')
     # Then urlencode whatever's left.
     encoded = urllib.quote(normalized)
     if len(path) > 1 and path.endswith('/'):
         encoded += '/'
     return encoded
+
 
 def auth_payload(http_request):
     body = http_request.body
@@ -242,6 +253,7 @@ def auth_payload(http_request):
     if hasattr(body, 'seek') and hasattr(body, 'read'):
         return boto.utils.compute_hash(body, hash_algorithm=sha256)[0]
     return sha256(http_request.body).hexdigest()
+
 
 def auth_canonical_request(http_request, host):
     cr = [http_request.method.upper()]
@@ -253,6 +265,7 @@ def auth_canonical_request(http_request, host):
     cr.append(auth_payload(http_request))
     return '\n'.join(cr)
 
+
 def auth_scope(http_request, access_key):
     scope = [access_key]
     scope.append(http_request.timestamp)
@@ -260,6 +273,7 @@ def auth_scope(http_request, access_key):
     scope.append(http_request.service_name)
     scope.append('aws4_request')
     return '/'.join(scope)
+
 
 def auth_credential_scope(http_request, service_name, region_name):
     scope = []
@@ -274,6 +288,7 @@ def auth_credential_scope(http_request, service_name, region_name):
     scope.append('aws4_request')
     return '/'.join(scope)
 
+
 def auth_string_to_sign(http_request, canonical_request, service_name, region_name):
     """
     Return the canonical StringToSign as well as a dict
@@ -286,10 +301,11 @@ def auth_string_to_sign(http_request, canonical_request, service_name, region_na
     sts.append(sha256(canonical_request).hexdigest())
     return '\n'.join(sts)
 
+
 def auth_signature(http_request, string_to_sign, secret_key):
     key = secret_key
     k_date = auth_sign(('AWS4' + key).encode('utf-8'),
-                          http_request.timestamp)
+                       http_request.timestamp)
     k_region = auth_sign(k_date, http_request.region_name)
     k_service = auth_sign(k_region, http_request.service_name)
     k_signing = auth_sign(k_service, 'aws4_request')
@@ -311,6 +327,7 @@ def auth_add_auth(req, access_key, secret_key, service_name='amondawa', region_n
     req.headers['X-Amz-Date'] = now.strftime('%Y%m%dT%H%M%SZ')
 
     auth_check_auth(req, access_key, secret_key, service_name, region_name)
+
 
 def auth_check_auth(req, access_key, secret_key, service_name='amondawa', region_name=config.REGION):
     """
