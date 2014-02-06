@@ -21,17 +21,17 @@
 # IN THE SOFTWARE.
 
 from amondawa.auth import auth_add_auth1
-from tests.writers import RandomWriter
+from tests.writers import MetricWriter
 import simplejson, sys, time, httplib, pprint
 
 
-class RandomHTTPWriter(RandomWriter):
-    """Write random metrics, tags, datapoints to amondawa datastore via HTTP.
-  """
-
+class HTTPWriter(MetricWriter):
+    """Write metrics, tags, datapoints to amondawa datastore via HTTP.
+    """
     def __init__(self, host, port, access_key_id, secret_access_key, path='/api/v1/nodomain/datapoints',
-                 rate=20, batch_size=20, duration=10):
-        super(RandomHTTPWriter, self).__init__(rate=rate, batch_size=batch_size, duration=duration)
+                 rate=20, batch_size=20, duration=10, random_values=True):
+        super(HTTPWriter, self).__init__(rate=rate, batch_size=batch_size, duration=duration,
+                                         random_values=random_values)
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
 
@@ -39,10 +39,7 @@ class RandomHTTPWriter(RandomWriter):
         self.port = port
         self.host = host
         self.path = path
-        self.dps = [{
-                        'name': self.metric,
-                        'tags': self.tags,
-                    }]
+        self.dps = [{ 'name': self.metric, 'tags': self.tags }]
         self._init_stats()
 
     def reset(self):
@@ -78,7 +75,7 @@ class RandomHTTPWriter(RandomWriter):
 
     def reset_stats(self):
         totals = self.totals()
-        super(RandomHTTPWriter, self).reset_stats()
+        super(HTTPWriter, self).reset_stats()
         self._init_stats()
         return totals
 
@@ -101,7 +98,7 @@ class RandomHTTPWriter(RandomWriter):
         try:
             # TODO: use protocol (http/https)
             headers = auth_add_auth1(self.access_key_id, self.secret_access_key,
-                                     'POST', self.host, self.port, self.path, {'Content-Type': 'application/json'})
+                         'POST', self.host, self.port, self.path, {'Content-Type': 'application/json'})
             self.connection.request('POST', self.path, simplejson.dumps(self.dps), headers)
             response = self.connection.getresponse()
             response.read()

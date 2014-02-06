@@ -25,7 +25,7 @@ HTTP related classes.
 """
 
 from amondawa import config
-from amondawa.auth import authorized
+from amondawa.server_auth import authorized
 from amondawa.datastore import QueryMetric, DataPointSet, Datastore
 from amondawa.mtime import timeit
 

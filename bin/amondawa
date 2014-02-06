@@ -36,6 +36,7 @@ from tests.data import all_metrics
 from tests.http_writer import *
 from tests.query import QueryRunner
 from tests.stats import Intervals
+
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -66,6 +67,7 @@ client_config.read(sys.argv[1])
 
 SEED = client_config.getint('Load', 'SEED')
 random.seed(SEED)   # random but consistent
+RANDOM = client_config.getboolean('Load', 'RANDOM')
 
 INTERVALS = Intervals()
 
@@ -201,8 +203,8 @@ def reset():
 def start(block=False):
     global WRITERS, NTHREADS, RATE, INTERVALS, DURATION
     stop()
-    WRITERS = [RandomHTTPWriter(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY, rate=RATE / NTHREADS,
-                                duration=DURATION, batch_size=BATCH_SIZE) for i in range(NTHREADS)]
+    WRITERS = [HTTPWriter(HOST, PORT, ACCESS_KEY_ID, SECRET_ACCESS_KEY, rate=RATE / NTHREADS,
+                       duration=DURATION, batch_size=BATCH_SIZE, random_values=RANDOM) for i in range(NTHREADS)]
 
     _assign_colors(WRITERS)
 
